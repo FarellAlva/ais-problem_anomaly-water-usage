@@ -71,13 +71,22 @@ def run_holdout_week1_to_week2(
     antigens: List[HourlyAntigen],
     seed: int = 42,
 ) -> Dict[str, object]:
-    """Melatih AIS hanya pada Minggu-1 (168 jam) dan menguji FPR pada Minggu-2 (168 jam)."""
+    """
+    Melatih pada Minggu-1 (168 jam, hanya 1 sampel per slot mingguan N=1) dan menguji FPR pada Minggu-2 (168 jam).
+    Membandingkan WaterAISVDetector vs PerSlotNSA vs ZScore1HourBaseline.
+    """
     w1 = [ag for ag in antigens if ag.week_number == 1]
     w2 = [ag for ag in antigens if ag.week_number == 2]
 
     ais = WaterAISVDetector(r_self=0.43, max_detectors=1500, max_attempts=25000, seed=seed).fit(w1)
     preds = [ais.predict_hour(ag) for ag in w2]
     fp_list = [ag.label for ag, pr in zip(w2, preds) if pr.is_anomaly]
+
+    ps = PerSlotNSA(r_self=0.43, n_detectors_per_slot=60, seed=seed).fit(w1)
+    ps_fp = sum(1 for ag in w2 if ps.predict_hour(ag).is_anomaly)
+
+    z1h = ZScore1HourBaseline(k=2.0, ucl_min=0.08).fit(w1)
+    z1h_fp = sum(1 for ag in w2 if z1h.predict_hour(ag).is_anomaly)
 
     return {
         "train_hours": len(w1),
@@ -86,6 +95,10 @@ def run_holdout_week1_to_week2(
         "fpr": round(len(fp_list) / len(w2), 4),
         "train_time_sec": round(ais.trace.train_time_sec, 4) if ais.trace else 0.0,
         "fp_examples": fp_list[:10],
+        "perslot_false_positives": ps_fp,
+        "perslot_fpr": round(ps_fp / len(w2), 4),
+        "zscore_1h_false_positives": z1h_fp,
+        "zscore_1h_fpr": round(z1h_fp / len(w2), 4),
     }
 
 
@@ -93,21 +106,38 @@ def run_leave_one_day_out(
     antigens: List[HourlyAntigen],
     seed: int = 42,
 ) -> Dict[str, object]:
-    """14-Fold Leave-One-Day-Out Cross-Validation di seluruh 336 jam normal asli."""
+    """
+    14-Fold Leave-One-Day-Out Cross-Validation di seluruh 336 jam normal asli.
+    Membandingkan WaterAISVDetector (Self 7D terpadu) vs PerSlotNSA & ZScore1Hour (slot terisolasi).
+    """
     per_day = []
     total_fp = 0
+    ps_total_fp = 0
+    z1h_total_fp = 0
     total_hours = 0
 
     for day_num in range(14):
         train_set = [ag for ag in antigens if ag.day_number != day_num]
         test_set = [ag for ag in antigens if ag.day_number == day_num]
         ais = WaterAISVDetector(r_self=0.43, max_detectors=1500, max_attempts=25000, seed=seed + day_num).fit(train_set)
+        ps = PerSlotNSA(r_self=0.43, n_detectors_per_slot=60, seed=seed + day_num).fit(train_set)
+        z1h = ZScore1HourBaseline(k=2.0, ucl_min=0.08).fit(train_set)
+
         fps = []
+        ps_fp_day = 0
+        z1h_fp_day = 0
         for ag in test_set:
             res = ais.predict_hour(ag)
             if res.is_anomaly:
                 fps.append({"label": ag.label, "flows": ag.slot_flows, "margin": round(res.max_detector_margin, 4)})
+            if ps.predict_hour(ag).is_anomaly:
+                ps_fp_day += 1
+            if z1h.predict_hour(ag).is_anomaly:
+                z1h_fp_day += 1
+
         total_fp += len(fps)
+        ps_total_fp += ps_fp_day
+        z1h_total_fp += z1h_fp_day
         total_hours += len(test_set)
         per_day.append(
             {
@@ -117,6 +147,8 @@ def run_leave_one_day_out(
                 "hours": len(test_set),
                 "fp": len(fps),
                 "fpr": round(len(fps) / len(test_set), 4),
+                "perslot_fp": ps_fp_day,
+                "zscore_1h_fp": z1h_fp_day,
                 "fp_details": fps,
             }
         )
@@ -126,6 +158,10 @@ def run_leave_one_day_out(
         "total_hours": total_hours,
         "total_fp": total_fp,
         "overall_fpr": round(total_fp / total_hours, 4),
+        "perslot_total_fp": ps_total_fp,
+        "perslot_overall_fpr": round(ps_total_fp / total_hours, 4),
+        "zscore_1h_total_fp": z1h_total_fp,
+        "zscore_1h_overall_fpr": round(z1h_total_fp / total_hours, 4),
         "per_day": per_day,
     }
 
@@ -162,7 +198,7 @@ def run_comparative_benchmark(
     perslot_seed0_preds = None
     for s in range(n_seeds):
         t0 = time.perf_counter()
-        p_ais = PerSlotNSA(r_self=0.43, n_detectors_per_slot=120, seed=100 + s).fit(antigens)
+        p_ais = PerSlotNSA(r_self=0.43, n_detectors_per_slot=60, seed=100 + s).fit(antigens)
         tr_s = time.perf_counter() - t0
         t1 = time.perf_counter()
         preds = [p_ais.predict_hour(sc.antigen) for sc in scenarios]

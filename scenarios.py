@@ -140,3 +140,4 @@ def build_benchmark_scenarios() -> List[LabeledHourScenario]:
             )
         )
     return scenarios
+

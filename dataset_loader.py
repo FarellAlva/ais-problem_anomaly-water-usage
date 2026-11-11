@@ -168,3 +168,4 @@ def summarize_dataset(records: List[FlowIntervalRecord]) -> Dict[str, object]:
         "total_volume_liters_2w": round(total_liters, 2),
         "avg_daily_liters": round(total_liters / max(1, len(dates)), 2),
     }
+

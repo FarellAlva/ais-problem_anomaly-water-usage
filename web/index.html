@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WaterAIS — Deteksi Anomali Penggunaan Air (Artificial Immune System)</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>WaterAIS — Deteksi Anomali Penggunaan Air Berbasis Artificial Immune System</h1>
+      <p>Agregator 1-Jam (4×15 Menit) &amp; V-Detector Negative Selection vs Baseline Z-Score JUTISI (Dataset 2 Minggu)</p>
+    </div>
+    <div class="iot-controls">
+      <button id="btn-mode-toggle" class="btn btn-outline-light">Mode: AUTO (Proteksi Aktif)</button>
+      <span id="valve-pill" class="pill open">Solenoid Valve: OPEN (Mengalir)</span>
+      <button id="btn-valve-reset" class="btn btn-outline-light">Override / Buka Valve</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="param-bar">
+      <div class="param-group">
+        <div class="param-item">
+          <label for="slider-rself">Self-Radius (r_self):</label>
+          <input id="slider-rself" type="range" min="0.32" max="0.54" step="0.01" value="0.43" />
+          <strong id="val-rself">0.43</strong>
+        </div>
+        <div class="param-item">
+          <label for="slider-maxdet">Populasi V-Detector:</label>
+          <input id="slider-maxdet" type="range" min="400" max="2200" step="100" value="1500" />
+          <strong id="val-maxdet">1500</strong>
+        </div>
+        <div class="param-item">
+          <span id="train-status" style="color: var(--muted);">Siap</span>
+        </div>
+      </div>
+      <button id="btn-retrain" class="btn btn-primary">Latih Ulang V-Detector AIS</button>
+    </section>
+
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Dataset 2 Minggu &amp; Agregator 1-Jam</div>
+        <div class="kpi-value" id="kpi-self">336 Jam Self</div>
+        <div class="kpi-sub" id="kpi-self-sub">1.344 interval 15-menit (04–17 Mei 2025)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Mature V-Detectors (Non-Self)</div>
+        <div class="kpi-value" id="kpi-detectors">1.500 Sel</div>
+        <div class="kpi-sub" id="kpi-det-sub">Thymus censorship selesai dalam — s</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Holdout Normal (Minggu-1 → Minggu-2)</div>
+        <div class="kpi-value" id="kpi-holdout">FPR —</div>
+        <div class="kpi-sub" id="kpi-holdout-sub">Memuat validasi holdout Minggu-2 (168 jam)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">F1-Score Benchmark (AIS vs Z-Score)</div>
+        <div class="kpi-value" id="kpi-f1">—</div>
+        <div class="kpi-sub" id="kpi-f1-sub">Membandingkan 30 skenario normal &amp; anomali</div>
+      </div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="tab-sim">1. Simulasi Harian &amp; Agregator 1-Jam</button>
+      <button class="tab-btn" data-tab="tab-lab">2. Lab Uji Mandiri (4×15 Menit)</button>
+      <button class="tab-btn" data-tab="tab-dataset">3. Data 2 Minggu &amp; Mekanisme N=2</button>
+      <button class="tab-btn" data-tab="tab-ais">4. Ruang Imunologis &amp; V-Detectors</button>
+      <button class="tab-btn" data-tab="tab-bench">5. Benchmark AIS vs Z-Score</button>
+    </nav>
+
+    <!-- TAB 1: SIMULASI HARIAN -->
+    <section id="tab-sim" class="tab-panel active">
+      <div class="grid-sidebar">
+        <div>
+          <div class="card">
+            <div class="card-title">Kontrol Simulasi Hari (24 Jam)</div>
+            <p class="card-desc">Pilih hari asli dari dataset 2 minggu, lalu uji dengan atau tanpa injeksi anomali pada jam tertentu.</p>
+            <div class="form-row">
+              <label for="sim-day">Hari Pengamatan (Dataset Asli):</label>
+              <select id="sim-day"></select>
+            </div>
+            <div class="form-row">
+              <label for="sim-preset">Skenario Injeksi Anomali:</label>
+              <select id="sim-preset">
+                <option value="none">Tanpa Injeksi (Data Asli Normal)</option>
+                <option value="slow_leak">Kebocoran Halus Kontinyu (0.35 L/min x 4 slot)</option>
+                <option value="night_open_tap">Keran Terbuka Malam (1.20, 1.20, 0, 0)</option>
+                <option value="extreme_burst">Pipa Pecah / Lonjakan Ekstrem (5.10, 4.60, 0, 0)</option>
+                <option value="continuous_high">Banjir Kontinyu 1 Jam Penuh (1.80 x 4)</option>
+                <option value="schedule_shift">Uji False Positive: Pergeseran Jadwal Mandi (0, 2.35, 0, 0)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="sim-hour">Jam Injeksi (00:00 – 23:00):</label>
+              <input id="sim-hour" type="number" min="0" max="23" value="10" />
+            </div>
+            <div class="playback-row">
+              <button id="btn-sim-run" class="btn btn-primary">Jalankan Simulasi 24 Jam</button>
+              <button id="btn-sim-play" class="btn">Play Jam-per-Jam</button>
+              <button id="btn-sim-step" class="btn">+1 Jam</button>
+              <button id="btn-sim-reset" class="btn">Reset</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span>Agregator 1-Jam Aktif</span>
+              <span id="cur-hour-badge" class="badge badge-normal">Jam 00:00</span>
+            </div>
+            <div id="cur-hour-summary" style="font-size: 0.84rem;">
+              Memuat status jam...
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <div class="card-title">Grafik Penggunaan Air 24 Jam (15-Menit &amp; Rata-Rata Agregator 1-Jam)</div>
+            <p class="card-desc">Batang biru menunjukkan aliran tiap 15 menit; garis biru tua menunjukkan rata-rata 1 jam; sorotan merah menandakan jam terdeteksi Anomali oleh AIS.</p>
+            <canvas id="canvas-sim-24h" height="290"></canvas>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Log Evaluasi Per-Jam (AIS V-Detector vs Z-Score 15m vs Z-Score 1h)</div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Jam</th>
+                    <th>4×15m (L/min)</th>
+                    <th>Rata2 / Vol</th>
+                    <th>Aktif</th>
+                    <th>AIS V-Detector</th>
+                    <th>Z-Score 15m</th>
+                    <th>Z-Score 1h</th>
+                    <th>Diagnosis / Valve</th>
+                  </tr>
+                </thead>
+                <tbody id="sim-log-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: LAB UJI MANDIRI -->
+    <section id="tab-lab" class="tab-panel">
+      <div class="grid-sidebar">
+        <div class="card">
+          <div class="card-title">Input Manual Agregator 1-Jam</div>
+          <p class="card-desc">Masukkan 4 pembacaan 15-menitan dalam 1 jam (L/min) dan lihat bagaimana AIS vs Z-Score mengambil keputusan.</p>
+
+          <div class="grid-2" style="gap: 8px; margin-bottom: 8px;">
+            <div class="form-row">
+              <label for="lab-day">Hari:</label>
+              <select id="lab-day">
+                <option value="Sunday">Sunday (Minggu)</option>
+                <option value="Monday" selected>Monday (Senin)</option>
+                <option value="Tuesday">Tuesday (Selasa)</option>
+                <option value="Wednesday">Wednesday (Rabu)</option>
+                <option value="Thursday">Thursday (Kamis)</option>
+                <option value="Friday">Friday (Jumat)</option>
+                <option value="Saturday">Saturday (Sabtu)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="lab-hour">Jam (0–23):</label>
+              <input id="lab-hour" type="number" min="0" max="23" value="10" />
+            </div>
+          </div>
+
+          <div class="slot-inputs">
+            <div class="form-row">
+              <label for="lab-q1">Menit 00–15:</label>
+              <input id="lab-q1" type="number" min="0" max="15" step="0.05" value="0.35" />
+            </div>
+            <div class="form-row">
+              <label for="lab-q2">Menit 15–30:</label>
+              <input id="lab-q2" type="number" min="0" max="15" step="0.05" value="0.35" />
+            </div>
+            <div class="form-row">
+              <label for="lab-q3">Menit 30–45:</label>
+              <input id="lab-q3" type="number" min="0" max="15" step="0.05" value="0.35" />
+            </div>
+            <div class="form-row">
+              <label for="lab-q4">Menit 45–60:</label>
+              <input id="lab-q4" type="number" min="0" max="15" step="0.05" value="0.35" />
+            </div>
+          </div>
+
+          <div class="preset-chips">
+            <button class="chip" data-preset="slow_leak">Kebocoran Halus (10:00)</button>
+            <button class="chip" data-preset="night_leak">Bocor Malam (02:00)</button>
+            <button class="chip" data-preset="open_tap">Keran Terbuka (03:00)</button>
+            <button class="chip" data-preset="shift_normal">Mandi Geser Jam (Min 07:00)</button>
+            <button class="chip" data-preset="night_drip">Tetesan Wajar (02:00)</button>
+            <button class="chip" data-preset="burst">Pipa Pecah (08:00)</button>
+          </div>
+
+          <button id="btn-lab-eval" class="btn btn-primary" style="width: 100%;">Evaluasi Agregator 1-Jam</button>
+        </div>
+
+        <div>
+          <div class="card">
+            <div class="card-title">Perbandingan Keputusan 4 Metode (Agregator 1-Jam)</div>
+            <div id="lab-features-bar" style="font-size: 0.84rem; color: var(--muted); margin-bottom: 12px;"></div>
+            <div id="lab-verdicts" class="verdict-grid"></div>
+            <div id="lab-slot-history" class="callout"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: DATASET 2 MINGGU & MEKANISME N=2 -->
+    <section id="tab-dataset" class="tab-panel">
+      <div class="card">
+        <div class="card-title">Peta Panas Dataset 2 Minggu (14 Hari × 24 Jam = 336 Blok 1-Jam)</div>
+        <p class="card-desc">Klik sel jam mana pun pada heatmap untuk memeriksa 4 nilai 15-menit aslinya dan perbandingan Minggu-1 vs Minggu-2.</p>
+        <canvas id="canvas-heatmap" height="330"></canvas>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Inspektor Mekanisme 2 Sampel Mingguan (N=2)</div>
+          <p class="card-desc">Karena data berdurasi 2 minggu, setiap kombinasi (Hari, Jam) tepat memiliki 2 sampel: Minggu-1 dan Minggu-2.</p>
+          <div class="grid-2" style="gap: 10px;">
+            <div class="form-row">
+              <label for="slot-day">Pilih Hari:</label>
+              <select id="slot-day">
+                <option value="Sunday" selected>Sunday (Minggu)</option>
+                <option value="Monday">Monday (Senin)</option>
+                <option value="Tuesday">Tuesday (Selasa)</option>
+                <option value="Wednesday">Wednesday (Rabu)</option>
+                <option value="Thursday">Thursday (Kamis)</option>
+                <option value="Friday">Friday (Jumat)</option>
+                <option value="Saturday">Saturday (Sabtu)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="slot-hour">Pilih Jam (0–23):</label>
+              <input id="slot-hour" type="number" min="0" max="23" value="8" />
+            </div>
+          </div>
+          <div id="slot-inspector-detail" style="margin-top: 8px; font-size: 0.85rem;"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Profil Sirkadian 24-Jam Lintas 14 Hari</div>
+          <p class="card-desc">Menunjukkan bagaimana AIS menggabungkan 336 sel Self sirkadian sehingga tidak terjebak kerapuhan N=2 per slot.</p>
+          <canvas id="canvas-circadian" height="260"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: RUANG IMUNOLOGIS & V-DETECTOR -->
+    <section id="tab-ais" class="tab-panel">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Kurva Thymus Censorship (Negative Selection)</div>
+          <p class="card-desc">Kandidat yang jatuh di dalam radius Self digugurkan; yang lolos menjadi Mature V-Detector Non-Self.</p>
+          <canvas id="canvas-trace" height="290"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Proyeksi 2D Ruang Self vs Mature V-Detectors</div>
+          <p class="card-desc">Hijau = 336 sel Self normal; Oranye = sampel V-Detectors Non-Self; Bintang merah/biru = titik uji terakhir.</p>
+          <canvas id="canvas-space" height="290"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Ringkasan Arsitektur &amp; Distribusi Radius V-Detector</div>
+        <div id="ais-trace-summary" style="font-size: 0.85rem;"></div>
+      </div>
+    </section>
+
+    <!-- TAB 5: BENCHMARK AIS VS Z-SCORE -->
+    <section id="tab-bench" class="tab-panel">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Perbandingan Metrik (20 Seed AIS vs Baseline Z-Score)</div>
+          <p class="card-desc">Evaluasi pada 30 skenario uji (12 normal variatif termasuk pergeseran jam &amp; 18 skenario anomali).</p>
+          <canvas id="canvas-bench" height="280"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Validasi Holdout &amp; 14-Fold Leave-One-Day-Out</div>
+          <div id="bench-metrics-table" style="font-size: 0.84rem;"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Matriks Perbandingan 30 Skenario (Menunjukkan Keunggulan AIS atas Z-Score)</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Skenario</th>
+                <th>Hari / Jam</th>
+                <th>4×15m (L/min)</th>
+                <th>Label Asli</th>
+                <th>Z-Score 15m</th>
+                <th>Z-Score 1h</th>
+                <th>Per-Slot AIS</th>
+                <th>WaterAIS V-Det</th>
+              </tr>
+            </thead>
+            <tbody id="bench-scenario-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
+

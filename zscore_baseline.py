@@ -164,3 +164,4 @@ class ZScore1HourBaseline:
             triggered_slots=[0, 1, 2, 3] if is_anom else [],
             reason=reason,
         )
+

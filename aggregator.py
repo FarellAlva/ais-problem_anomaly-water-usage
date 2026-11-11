@@ -70,8 +70,8 @@ FEATURE_WEIGHTS = np.array(
         1.30,  # max_flow_log: lonjakan sesaat
         0.85,  # active_ratio: durasi keterlibatan slot dalam 1 jam
         2.20,  # min_flow_log: penanda kuat kebocoran kontinyu (4/4 slot > 0)
-        2.20,  # circadian_sin: konteks waktu 24 jam
-        2.20,  # circadian_cos: konteks waktu 24 jam
+        3.20,  # circadian_sin: konteks waktu 24 jam (memisahkan jam tidur vs jam aktif)
+        3.20,  # circadian_cos: konteks waktu 24 jam
         0.25,  # is_weekend: perbedaan halus hari kerja vs akhir pekan
     ],
     dtype=float,

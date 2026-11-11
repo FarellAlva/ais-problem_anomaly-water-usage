@@ -68,6 +68,7 @@ def plot_dataset_profile(antigens) -> None:
     ax2.set_title("Profil Sirkadian Penggunaan Air Normal (336 Jam)", fontsize=11, fontweight="bold")
     ax2.set_xlabel("Jam Dalam Sehari")
     ax2.set_ylabel("Laju Aliran Rata-rata 1 Jam (L/min)")
+    ax2.set_ylim(-0.04, 1.52)
     ax2.set_xticks(range(0, 24, 2))
     ax2.grid(alpha=0.25, linestyle="--")
     ax2.legend(fontsize=8, loc="upper right")
@@ -103,15 +104,16 @@ def plot_n2_mechanism(antigens) -> None:
              label="Z-Score UCL (N=2: mu + 2*sigma)")
     ax1.plot(x, global_max, color="#10b981", linestyle="-.", linewidth=1.8,
              label="Batas Wajar Lintas 14 Hari (Konteks AIS)")
-    ax1.annotate("Shift jam 08:00:\nW1=0.0, W2=1.04\n-> UCL melonjak 2.0!", xy=(8, 2.00), xytext=(9.8, 1.85),
-                 arrowprops=dict(arrowstyle="->", color="#e11d48"), fontsize=8, color="#9f1239",
+    ax1.annotate("Shift jam 08:00:\nW1=0.0, W2=1.04\n-> UCL melonjak 2.0!", xy=(8, 2.00), xytext=(1.0, 1.48),
+                 arrowprops=dict(arrowstyle="->", color="#e11d48", lw=1.4), fontsize=8, color="#9f1239",
                  bbox=dict(boxstyle="round,pad=0.3", fc="#fff1f2", ec="#fda4af"))
     ax1.set_title("Dampak N=2 Sampel pada Z-Score Mingguan (Contoh Hari Minggu)", fontsize=10.5, fontweight="bold")
     ax1.set_xlabel("Jam (00:00 – 23:00)")
     ax1.set_ylabel("Rata-rata Laju 1 Jam (L/min)")
+    ax1.set_ylim(0, 2.32)
     ax1.set_xticks(range(0, 24, 2))
     ax1.grid(alpha=0.25, linestyle="--")
-    ax1.legend(fontsize=8, loc="upper left")
+    ax1.legend(fontsize=7.8, loc="upper right")
 
     # Panel 2: Distribusi Active Slots pada 336 jam normal vs Skenario Kebocoran
     counts = [sum(1 for ag in antigens if ag.active_slots == k) for k in range(5)]
@@ -196,8 +198,8 @@ def plot_vdetector_space(antigens, scenarios) -> None:
     plt.close(fig)
 
 
-def plot_benchmark_comparison(bench_data: Dict[str, object]) -> None:
-    """Gambar 4: Perbandingan Accuracy, Precision, Recall, F1, dan FPR antar metode."""
+def plot_benchmark_comparison(bench_data: Dict[str, object], lodo_data: Dict[str, object]) -> None:
+    """Gambar 4: Perbandingan Accuracy, Precision, Recall, F1, FPR, FNR & LODO FPR antar metode."""
     models = bench_data["models"]
     names = ["Z-Score 15m\n(JUTISI N=2)", "Z-Score 1h\n(Slot N=2)", "Per-Slot AIS\n(Slot N=2)", "WaterAIS\nV-Detector"]
     keys = ["ZScore_15Min_JUTISI", "ZScore_1Hour_N2", "PerSlot_AIS_N2", "WaterAIS_VDetector"]
@@ -210,7 +212,7 @@ def plot_benchmark_comparison(bench_data: Dict[str, object]) -> None:
     metric_labels = ["Accuracy", "Precision", "Recall", "F1-Score"]
     colors = ["#38bdf8", "#818cf8", "#34d399", "#0284c7"]
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5.0), gridspec_kw={"width_ratios": [1.5, 1.0]})
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.5, 5.2), gridspec_kw={"width_ratios": [1.35, 1.05]})
     x = np.arange(len(names))
     w = 0.19
     for idx, (m, lbl, col) in enumerate(zip(metrics, metric_labels, colors)):
@@ -219,32 +221,43 @@ def plot_benchmark_comparison(bench_data: Dict[str, object]) -> None:
         for b, v in zip(bars, vals):
             ax1.text(b.get_x() + b.get_width() / 2, v + 1.2, f"{v:.1f}", ha="center", va="bottom", fontsize=7.5)
 
-    ax1.set_ylim(0, 114)
+    ax1.set_ylim(0, 122)
     ax1.set_xticks(x)
     ax1.set_xticklabels(names, fontsize=9, fontweight="bold")
     ax1.set_ylabel("Skor (%)")
-    ax1.set_title("Perbandingan Performa Deteksi Anomali 1-Jam (30 Skenario, 20 Seed AIS)", fontsize=10.5, fontweight="bold")
+    ax1.set_title("Performa Uji 30 Skenario (12 Normal + 18 Anomali, 20 Seed)", fontsize=10.5, fontweight="bold")
     ax1.grid(axis="y", alpha=0.25, linestyle="--")
-    ax1.legend(fontsize=8.5, loc="lower right")
+    ax1.legend(fontsize=8, loc="upper center", ncol=4)
 
-    # Panel 2: Error Rates (FPR vs FNR)
+    # Panel 2: Error Rates (Scenario FPR, Scenario FNR, & LODO CV FPR)
     fprs = [get_val(k, "fpr") * 100.0 for k in keys]
     fnrs = [get_val(k, "fnr") * 100.0 for k in keys]
-    w2 = 0.34
-    b_fp = ax2.bar(x - w2 / 2, fprs, width=w2, color="#f59e0b", label="False Positive Rate (Alarm Palsu)")
-    b_fn = ax2.bar(x + w2 / 2, fnrs, width=w2, color="#ef4444", label="False Negative Rate (Anomali Lolos)")
-    for b, v in zip(b_fp, fprs):
-        ax2.text(b.get_x() + b.get_width() / 2, v + 0.8, f"{v:.1f}%", ha="center", va="bottom", fontsize=8)
-    for b, v in zip(b_fn, fnrs):
-        ax2.text(b.get_x() + b.get_width() / 2, v + 0.8, f"{v:.1f}%", ha="center", va="bottom", fontsize=8)
+    # LODO FPR (ZScore 15m tidak diterapkan di LODO harian slot terisolasi karena N=1 fallback lebih rapuh dari Z1h)
+    lodo_z1h = lodo_data.get("zscore_1h_overall_fpr", 0.0) * 100.0
+    lodo_ps = lodo_data.get("perslot_overall_fpr", 0.0) * 100.0
+    lodo_ais = lodo_data.get("overall_fpr", 0.0) * 100.0
+    lodo_fprs = [np.nan, lodo_z1h, lodo_ps, lodo_ais]
 
-    ax2.set_ylim(0, max(fprs + fnrs + [20]) * 1.2)
+    w2 = 0.25
+    b_fp = ax2.bar(x - w2, fprs, width=w2, color="#f59e0b", label="Scenario FPR (Alarm Palsu)")
+    b_fn = ax2.bar(x, fnrs, width=w2, color="#ef4444", label="Scenario FNR (Anomali Lolos)")
+    b_lo = ax2.bar(x + w2, [0.0 if np.isnan(v) else v for v in lodo_fprs], width=w2, color="#7c3aed",
+                   label="14-Fold LODO FPR (Generalisasi Data Asli)")
+    for b, v in zip(b_fp, fprs):
+        ax2.text(b.get_x() + b.get_width() / 2, v + 0.8, f"{v:.1f}%", ha="center", va="bottom", fontsize=7.5)
+    for b, v in zip(b_fn, fnrs):
+        ax2.text(b.get_x() + b.get_width() / 2, v + 0.8, f"{v:.1f}%", ha="center", va="bottom", fontsize=7.5)
+    for b, v in zip(b_lo, lodo_fprs):
+        lbl_t = "N/A" if np.isnan(v) else f"{v:.1f}%"
+        ax2.text(b.get_x() + b.get_width() / 2, (0.0 if np.isnan(v) else v) + 0.8, lbl_t, ha="center", va="bottom", fontsize=7.5)
+
+    ax2.set_ylim(0, max(fprs + fnrs + [v for v in lodo_fprs if not np.isnan(v)] + [20]) * 1.24)
     ax2.set_xticks(x)
-    ax2.set_xticklabels(names, fontsize=8.5)
+    ax2.set_xticklabels(names, fontsize=8.5, fontweight="bold")
     ax2.set_ylabel("Tingkat Kesalahan (%)")
-    ax2.set_title("Perbandingan Risiko Kesalahan (FPR vs FNR)", fontsize=10.5, fontweight="bold")
+    ax2.set_title("Risiko Kesalahan & Generalisasi LODO (336 Jam Asli)", fontsize=10.5, fontweight="bold")
     ax2.grid(axis="y", alpha=0.25, linestyle="--")
-    ax2.legend(fontsize=8)
+    ax2.legend(fontsize=7.8, loc="upper right")
 
     fig.tight_layout()
     fig.savefig(os.path.join(FIGURES_DIR, "fig4_benchmark_comparison.png"), dpi=160)
@@ -302,11 +315,14 @@ def write_markdown_summary(bench_full: Dict[str, object], lodo: Dict[str, object
     lines = [
         "# Ringkasan Hasil Eksperimen Deteksi Anomali Air Berbasis AIS",
         "",
-        "## 1. Validasi Data Normal Asli (Tanpa Skenario Sintetis)",
-        f"- **Holdout Minggu-1 → Minggu-2** (`168` jam latih → `168` jam normal uji): "
-        f"**FP = {holdout['false_positives']}/{holdout['test_hours']}** (`FPR = {holdout['fpr']*100:.2f}%`, waktu latih `{holdout['train_time_sec']:.3f}s`).",
-        f"- **14-Fold Leave-One-Day-Out Cross-Validation** (`336` jam normal asli): "
-        f"**FP = {lodo['total_fp']}/{lodo['total_hours']}** (`FPR = {lodo['overall_fpr']*100:.2f}%`).",
+        "## 1. Validasi Data Normal Asli (Holdout Minggu-1 → Minggu-2 & 14-Fold LODO CV)",
+        "| Metode | Holdout W1→W2 (168 jam) | FPR Holdout | 14-Fold LODO CV (336 jam) | FPR LODO |",
+        "| :--- | :---: | :---: | :---: | :---: |",
+        f"| **WaterAIS V-Detector (Context 7D)** | {holdout['false_positives']}/{holdout['test_hours']} FP | **{holdout['fpr']*100:.2f}%** | {lodo['total_fp']}/{lodo['total_hours']} FP | **{lodo['overall_fpr']*100:.2f}%** |",
+        f"| **Per-Slot AIS (Slot Terisolasi)** | {holdout.get('perslot_false_positives', '-')}/{holdout['test_hours']} FP | {holdout.get('perslot_fpr', 0)*100:.2f}% | {lodo.get('perslot_total_fp', '-')}/{lodo['total_hours']} FP | {lodo.get('perslot_overall_fpr', 0)*100:.2f}% |",
+        f"| **Z-Score 1-Jam (Fallback N=1)** | {holdout.get('zscore_1h_false_positives', '-')}/{holdout['test_hours']} FP | {holdout.get('zscore_1h_fpr', 0)*100:.2f}% | {lodo.get('zscore_1h_total_fp', '-')}/{lodo['total_hours']} FP | {lodo.get('zscore_1h_overall_fpr', 0)*100:.2f}% |",
+        "",
+        f"Waktu latih rata-rata V-Detector Holdout: `{holdout['train_time_sec']:.3f}s`.",
         "",
         "## 2. Perbandingan Komparatif (30 Skenario Uji: 12 Normal Variatif + 18 Anomali)",
         "",
@@ -338,7 +354,7 @@ def main() -> None:
     plot_dataset_profile(antigens)
     plot_n2_mechanism(antigens)
     plot_vdetector_space(antigens, scenarios)
-    plot_benchmark_comparison(bench_full["benchmark"])
+    plot_benchmark_comparison(bench_full["benchmark"], lodo)
     plot_sensitivity(sens)
     write_markdown_summary(bench_full, lodo)
 
@@ -347,3 +363,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

@@ -1,0 +1,166 @@
+{
+  "folds": 14,
+  "total_hours": 336,
+  "total_fp": 0,
+  "overall_fpr": 0.0,
+  "perslot_total_fp": 60,
+  "perslot_overall_fpr": 0.1786,
+  "zscore_1h_total_fp": 94,
+  "zscore_1h_overall_fpr": 0.2798,
+  "per_day": [
+    {
+      "day_number": 0,
+      "date": "04 May 2025",
+      "day_name": "Sunday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 7,
+      "zscore_1h_fp": 6,
+      "fp_details": []
+    },
+    {
+      "day_number": 1,
+      "date": "05 May 2025",
+      "day_name": "Monday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 2,
+      "zscore_1h_fp": 2,
+      "fp_details": []
+    },
+    {
+      "day_number": 2,
+      "date": "06 May 2025",
+      "day_name": "Tuesday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 2,
+      "zscore_1h_fp": 3,
+      "fp_details": []
+    },
+    {
+      "day_number": 3,
+      "date": "07 May 2025",
+      "day_name": "Wednesday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 1,
+      "zscore_1h_fp": 8,
+      "fp_details": []
+    },
+    {
+      "day_number": 4,
+      "date": "08 May 2025",
+      "day_name": "Thursday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 6,
+      "zscore_1h_fp": 6,
+      "fp_details": []
+    },
+    {
+      "day_number": 5,
+      "date": "09 May 2025",
+      "day_name": "Friday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 3,
+      "zscore_1h_fp": 4,
+      "fp_details": []
+    },
+    {
+      "day_number": 6,
+      "date": "10 May 2025",
+      "day_name": "Saturday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 6,
+      "zscore_1h_fp": 5,
+      "fp_details": []
+    },
+    {
+      "day_number": 7,
+      "date": "11 May 2025",
+      "day_name": "Sunday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 6,
+      "zscore_1h_fp": 8,
+      "fp_details": []
+    },
+    {
+      "day_number": 8,
+      "date": "12 May 2025",
+      "day_name": "Monday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 5,
+      "zscore_1h_fp": 10,
+      "fp_details": []
+    },
+    {
+      "day_number": 9,
+      "date": "13 May 2025",
+      "day_name": "Tuesday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 4,
+      "zscore_1h_fp": 10,
+      "fp_details": []
+    },
+    {
+      "day_number": 10,
+      "date": "14 May 2025",
+      "day_name": "Wednesday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 3,
+      "zscore_1h_fp": 5,
+      "fp_details": []
+    },
+    {
+      "day_number": 11,
+      "date": "15 May 2025",
+      "day_name": "Thursday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 5,
+      "zscore_1h_fp": 8,
+      "fp_details": []
+    },
+    {
+      "day_number": 12,
+      "date": "16 May 2025",
+      "day_name": "Friday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 4,
+      "zscore_1h_fp": 10,
+      "fp_details": []
+    },
+    {
+      "day_number": 13,
+      "date": "17 May 2025",
+      "day_name": "Saturday",
+      "hours": 24,
+      "fp": 0,
+      "fpr": 0.0,
+      "perslot_fp": 6,
+      "zscore_1h_fp": 9,
+      "fp_details": []
+    }
+  ]
+}

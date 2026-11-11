@@ -61,7 +61,7 @@ class AppState:
 
         self.z15 = ZScore15MinBaseline(k=2.0, ucl_min=0.20).fit(self.records)
         self.z1h = ZScore1HourBaseline(k=2.0, ucl_min=0.08).fit(self.antigens)
-        self.perslot_ais = PerSlotNSA(r_self=0.43, n_detectors_per_slot=120, seed=42).fit(self.antigens)
+        self.perslot_ais = PerSlotNSA(r_self=0.43, n_detectors_per_slot=60, seed=42).fit(self.antigens)
         self.ais = WaterAISVDetector(r_self=0.43, max_detectors=1500, max_attempts=25000, seed=42).fit(
             self.antigens
         )
@@ -74,7 +74,7 @@ class AppState:
                 max_attempts=max(12000, max_detectors * 18),
                 seed=seed,
             ).fit(self.antigens)
-            self.perslot_ais = PerSlotNSA(r_self=r_self, n_detectors_per_slot=120, seed=seed).fit(
+            self.perslot_ais = PerSlotNSA(r_self=r_self, n_detectors_per_slot=60, seed=seed).fit(
                 self.antigens
             )
             return self.get_ais_payload()
@@ -480,3 +480,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
