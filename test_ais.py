@@ -107,10 +107,32 @@ def test_perslot_nsa_and_web_state() -> None:
     state = AppState()
     init_p = state.get_init_payload()
     assert len(init_p["days"]) == 14
+    assert len(init_p["weekdays"]) == 7
     assert len(init_p["heatmap"]) == 14
+
+    # Verifikasi kurva threshold mingguan AIS (7 hari x 24 jam) selalu menaungi data normal M1 & M2
+    for d in ("Sunday", "Monday", "Saturday"):
+        prof = state.ais.compute_weekday_threshold_profile(d)
+        assert len(prof) == 24
+        assert all(p["ais_upper_lpm"] >= 0.0 and p["ais_leak_limit_lpm"] > 0.0 for p in prof)
+
     ev = state.evaluate_hour([0.35, 0.35, 0.35, 0.35], hour=10, day_name="Monday")
     assert ev["ais_vdetector"]["is_anomaly"] is True
+
+    # Kompatibilitas day_number lama + injeksi
     sim = state.simulate_day(day_number=13, inject_preset="slow_leak", inject_hour=10)
     assert len(sim["hours"]) == 24
+    assert len(sim["threshold_profile"]) == 24
     assert sim["hours"][10]["ais"]["is_anomaly"] is True
+
+    # Mode mingguan baru: uji data asli M1 & M2 pada model hari gabungan yang sama
+    sim_w1 = state.simulate_day(day_name="Monday", week_source="week1", inject_preset="none")
+    sim_w2 = state.simulate_day(day_name="Monday", week_source="week2", inject_preset="none")
+    assert sim_w1["threshold_profile"] == sim_w2["threshold_profile"]
+    assert all(not h["ais"]["is_anomaly"] for h in sim_w1["hours"])
+    assert all(not h["ais"]["is_anomaly"] for h in sim_w2["hours"])
+    assert all(
+        max(p["w1_mean"], p["w2_mean"]) <= p["ais_upper"] + 1e-6
+        for p in sim_w1["threshold_profile"]
+    )
 

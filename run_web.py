@@ -4,13 +4,13 @@ run_web.py — Server Web & API JSON Lokal untuk Dashboard Deteksi Anomali Air B
 Menjalankan HTTP server lokal yang melayani:
 - Antarmuka web statis di folder `web/` (index.html, style.css, app.js)
 - Endpoint REST JSON API berbasis mesin Python asli (`aggregator.py`, `ais_detector.py`,
-  `zscore_baseline.py`, `scenarios.py`, dan hasil eksperimen di `results/`):
+  `scenarios.py`, utilitas overlay Z-Score grafik, serta hasil evaluasi di `results/`):
   - GET  /api/init             -> Ringkasan dataset, data 14 hari, kurva sirkadian, status model AIS awal
   - POST /api/train            -> Melatih ulang WaterAISVDetector dengan (r_self, max_detectors, seed)
-  - POST /api/evaluate_hour    -> Evaluasi 1 jam (4x15m + hari + jam) pada AIS V-Detector, Per-Slot AIS, Z-Score 15m & 1h
-  - POST /api/simulate_day     -> Simulasi 24 jam (96 slot 15-menit) dari salah satu hari asli + opsi injeksi anomali
-  - GET  /api/weekly_slot      -> Inspeksi 2 sampel (Minggu-1 & Minggu-2) untuk pasangan (day_name, hour)
-  - GET  /api/benchmark        -> Mengembalikan hasil benchmark komparatif (atau menghitung cepat jika belum ada)
+  - POST /api/evaluate_hour    -> Evaluasi API 1 jam (4x15m + hari + jam) pada AIS V-Detector
+  - POST /api/simulate_day     -> Simulasi 24 jam model mingguan gabungan + injeksi anomali + overlay threshold
+  - GET  /api/weekly_slot      -> Inspeksi 2 sampel (Minggu-1 & Minggu-2) + dukungan sirkadian AIS
+  - GET  /api/benchmark        -> Mengembalikan hasil evaluasi AIS & ablasi internal di `results/`
 
 Jalankan:
     python run_web.py
@@ -38,7 +38,7 @@ from aggregator import (
     group_weekly_two_samples,
 )
 from ais_detector import PerSlotNSA, WaterAISVDetector
-from dataset_loader import DAYS_ORDER, load_water_dataset, summarize_dataset
+from dataset_loader import DAYS_ID_MAP, DAYS_ORDER, load_water_dataset, summarize_dataset
 from scenarios import build_benchmark_scenarios
 from zscore_baseline import ZScore15MinBaseline, ZScore1HourBaseline
 
@@ -74,9 +74,6 @@ class AppState:
                 max_attempts=max(12000, max_detectors * 18),
                 seed=seed,
             ).fit(self.antigens)
-            self.perslot_ais = PerSlotNSA(r_self=r_self, n_detectors_per_slot=60, seed=seed).fit(
-                self.antigens
-            )
             return self.get_ais_payload()
 
     def get_ais_payload(self) -> Dict[str, Any]:
@@ -151,17 +148,57 @@ class AppState:
                 "two_samples_slot": two_samples,
             }
 
+    def _build_threshold_profile_unlocked(self, day_name: str) -> List[Dict[str, Any]]:
+        ais_prof = self.ais.compute_weekday_threshold_profile(day_name)
+        profile: List[Dict[str, Any]] = []
+        for h in range(24):
+            pair = self.weekly_groups.get((day_name, h), [])
+            w1_ag = next((p for p in pair if p.week_number == 1), None)
+            w2_ag = next((p for p in pair if p.week_number == 2), None)
+            z_st = self.z1h.slot_stats.get((day_name, h))
+            profile.append(
+                {
+                    "hour": h,
+                    "w1_mean": round(w1_ag.mean_flow_lpm, 4) if w1_ag else 0.0,
+                    "w2_mean": round(w2_ag.mean_flow_lpm, 4) if w2_ag else 0.0,
+                    "combined_mean": round(z_st.mean, 4) if z_st else 0.0,
+                    "combined_std": round(z_st.std, 4) if z_st else 0.0,
+                    "zscore_ucl": round(z_st.ucl_final, 4) if z_st else 0.08,
+                    "ais_upper": ais_prof[h]["ais_upper_lpm"],
+                    "ais_leak_limit": ais_prof[h]["ais_leak_limit_lpm"],
+                }
+            )
+        return profile
+
     def simulate_day(
         self,
-        day_number: int = 13,
+        day_number: Optional[int] = None,
+        day_name: Optional[str] = None,
+        week_source: str = "week2",
         inject_preset: str = "none",
         inject_hour: int = 10,
         auto_mode: bool = True,
     ) -> Dict[str, Any]:
         with self.lock:
-            day_hours = [ag for ag in self.antigens if ag.day_number == day_number]
+            if day_name is not None and day_name in DAYS_ORDER:
+                target_week = 1 if week_source == "week1" else 2
+                day_hours = [
+                    ag for ag in self.antigens
+                    if ag.day_name == day_name and ag.week_number == target_week
+                ]
+            else:
+                dn = 13 if day_number is None else int(day_number)
+                day_hours = [ag for ag in self.antigens if ag.day_number == dn]
+                week_source = "week1" if (day_hours and day_hours[0].week_number == 1) else "week2"
+
             if not day_hours:
                 day_hours = [ag for ag in self.antigens if ag.day_number == 0]
+
+            target_day = day_hours[0].day_name
+            threshold_profile = self._build_threshold_profile_unlocked(target_day)
+            pair0 = self.weekly_groups.get((target_day, 0), [])
+            w1_date = next((p.date_str for p in pair0 if p.week_number == 1), "-")
+            w2_date = next((p.date_str for p in pair0 if p.week_number == 2), "-")
 
             sim_hours: List[Dict[str, Any]] = []
             for ag in day_hours:
@@ -192,6 +229,7 @@ class AppState:
                 r_ais = self.ais.predict_hour(cur_ag, auto_mode=auto_mode)
                 r_z15 = self.z15.predict_hour(cur_ag)
                 r_z1h = self.z1h.predict_hour(cur_ag)
+                tp = threshold_profile[cur_ag.hour]
 
                 sim_hours.append(
                     {
@@ -203,6 +241,10 @@ class AppState:
                         "max_flow_lpm": round(cur_ag.max_flow_lpm, 4),
                         "active_slots": cur_ag.active_slots,
                         "total_liters": round(cur_ag.total_liters, 2),
+                        "combined_mean": tp["combined_mean"],
+                        "zscore_ucl": tp["zscore_ucl"],
+                        "ais_upper": tp["ais_upper"],
+                        "ais_leak_limit": tp["ais_leak_limit"],
                         "ais": r_ais.to_dict(),
                         "zscore_15m": r_z15.to_dict(),
                         "zscore_1h": r_z1h.to_dict(),
@@ -211,40 +253,39 @@ class AppState:
 
             return {
                 "day_number": day_hours[0].day_number,
-                "day_name": day_hours[0].day_name,
+                "day_name": target_day,
+                "day_name_id": DAYS_ID_MAP.get(target_day, target_day),
                 "date_str": day_hours[0].date_str,
                 "week_number": day_hours[0].week_number,
+                "week_source": week_source,
+                "w1_date_str": w1_date,
+                "w2_date_str": w2_date,
                 "inject_preset": inject_preset,
                 "inject_hour": inject_hour,
                 "auto_mode": auto_mode,
+                "threshold_profile": threshold_profile,
                 "hours": sim_hours,
             }
 
     def get_weekly_slot(self, day_name: str, hour: int) -> Dict[str, Any]:
         with self.lock:
-            pair = self.weekly_groups.get((day_name, hour % 24), [])
-            z1h_stat = self.z1h.slot_stats.get((day_name, hour % 24))
-            z15_stats = [
-                self.z15.slot_stats.get((day_name, hour % 24, m)) for m in (0, 15, 30, 45)
-            ]
-            # Juga kumpulkan tetangga sirkadian (jam +-1 lintas 14 hari) yang dipakai AIS
+            h = hour % 24
+            pair = self.weekly_groups.get((day_name, h), [])
+            z1h_stat = self.z1h.slot_stats.get((day_name, h))
+            ais_prof = self.ais.compute_weekday_threshold_profile(day_name)[h]
             neighbors = [
                 ag for ag in self.antigens
-                if min((ag.hour - hour) % 24, (hour - ag.hour) % 24) <= 1
+                if min((ag.hour - h) % 24, (h - ag.hour) % 24) <= 1
             ]
             return {
                 "day_name": day_name,
-                "hour": hour % 24,
+                "hour": h,
                 "samples": [p.to_dict() for p in pair],
-                "zscore_1h_stat": {
-                    "mean": round(z1h_stat.mean, 4) if z1h_stat else 0.0,
-                    "std": round(z1h_stat.std, 4) if z1h_stat else 0.0,
-                    "ucl_raw": round(z1h_stat.ucl_raw, 4) if z1h_stat else 0.0,
-                    "ucl_final": round(z1h_stat.ucl_final, 4) if z1h_stat else 0.08,
-                },
-                "zscore_15m_ucls": [
-                    round(st.ucl_final, 4) if st else 0.20 for st in z15_stats
-                ],
+                "combined_mean": round(z1h_stat.mean, 4) if z1h_stat else 0.0,
+                "combined_std": round(z1h_stat.std, 4) if z1h_stat else 0.0,
+                "zscore_ucl": round(z1h_stat.ucl_final, 4) if z1h_stat else 0.08,
+                "ais_upper_lpm": ais_prof["ais_upper_lpm"],
+                "ais_leak_limit_lpm": ais_prof["ais_leak_limit_lpm"],
                 "ais_circadian_support_count": len(neighbors),
                 "ais_circadian_mean_max": round(
                     max((n.mean_flow_lpm for n in neighbors), default=0.0), 4
@@ -296,9 +337,25 @@ class AppState:
                 for ag in self.antigens
             ]
 
+            weekdays_meta = []
+            for d_name in DAYS_ORDER:
+                w1_ags = [ag for ag in self.antigens if ag.day_name == d_name and ag.week_number == 1]
+                w2_ags = [ag for ag in self.antigens if ag.day_name == d_name and ag.week_number == 2]
+                weekdays_meta.append(
+                    {
+                        "day_name": d_name,
+                        "day_name_id": DAYS_ID_MAP.get(d_name, d_name),
+                        "w1_date": w1_ags[0].date_str if w1_ags else "-",
+                        "w2_date": w2_ags[0].date_str if w2_ags else "-",
+                        "w1_liters": round(sum(a.total_liters for a in w1_ags), 1),
+                        "w2_liters": round(sum(a.total_liters for a in w2_ags), 1),
+                    }
+                )
+
             return {
                 "dataset_summary": self.dataset_summary,
                 "days": days_meta,
+                "weekdays": weekdays_meta,
                 "heatmap": heatmap,
                 "circadian": circadian,
                 "self_projection": self_proj,
@@ -426,13 +483,20 @@ class AISRequestHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/simulate_day":
-            day_number = int(body.get("day_number", 13))
+            raw_dn = body.get("day_number")
+            day_number = int(raw_dn) if raw_dn is not None else None
+            day_name = body.get("day_name")
+            if day_name is not None and day_name not in DAYS_ORDER:
+                day_name = "Saturday"
+            week_source = str(body.get("week_source", "week2"))
             inject_preset = str(body.get("inject_preset", "none"))
             inject_hour = int(body.get("inject_hour", 10)) % 24
             auto_mode = bool(body.get("auto_mode", True))
             self._send_json(
                 STATE.simulate_day(
                     day_number=day_number,
+                    day_name=day_name,
+                    week_source=week_source,
                     inject_preset=inject_preset,
                     inject_hour=inject_hour,
                     auto_mode=auto_mode,

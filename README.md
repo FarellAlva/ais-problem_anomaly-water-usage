@@ -1,6 +1,6 @@
 # WaterAIS — Deteksi Anomali Penggunaan Air Berbasis Artificial Immune System (AIS) & Agregator 1-Jam
 
-Implementasi *from-scratch* **Artificial Immune System (AIS)** menggunakan **Context-Aware Real-Valued V-Detector Negative Selection** untuk mendeteksi anomali penggunaan air IoT pada **jendela agregasi 1 jam** (`4 × 15 menit`), lengkap dengan perbandingan empiris terhadap **Z-Score Statistik (Jurnal JUTISI)** serta dua aplikasi interaktif (**Web Dashboard** dan **Desktop GUI Tkinter**).
+Implementasi *from-scratch* **Artificial Immune System (AIS)** menggunakan **Context-Aware Real-Valued V-Detector Negative Selection** untuk mendeteksi anomali penggunaan air IoT pada **jendela agregasi 1 jam** (`4 × 15 menit`), dilengkapi dua aplikasi interaktif (**Web Dashboard** dan **Desktop GUI Tkinter**) serta overlay pembanding visual **Threshold AIS (Biru)** vs **Threshold Z-Score (Oranye)** pada grafik 24-jam.
 
 ---
 
@@ -10,7 +10,7 @@ Dataset pengamatan laju aliran air normal berlangsung selama **14 hari (04 Mei 2
 - Total rekaman 15-menit: **`1.344`** slot (`287` aktif `> 0 L/min`, `1.057` bernilai `0.00 L/min`).
 - Volume total 14 hari: **`3.493,35 Liter`** (rata-rata **`249,53 Liter/hari`**), laju puncak **`2,61 L/min`**.
 - **Agregator 1-Jam (`Tumbling Window`)**: mengelompokkan setiap `4` slot berurutan menjadi **`336` blok jam** (`14 hari × 24 jam`).
-- Fakta fisik penting dari 336 jam normal:
+- Karakteristik fisik penting dari 336 jam normal:
   - `0/4` slot aktif (diam): **112 jam (33,3%)**
   - `1/4` slot aktif: **163 jam (48,5%)**
   - `2/4` slot aktif: **59 jam (17,6%)**
@@ -19,66 +19,49 @@ Dataset pengamatan laju aliran air normal berlangsung selama **14 hari (04 Mei 2
 
 ---
 
-## 2. Pertanyaan Kunci: Apakah Z-Score Bisa Diterapkan & Bagaimana Mekanisme AIS pada Data 2 Minggu?
+## 2. Mekanisme WaterAIS pada Data 2 Minggu & Proyeksi Threshold
 
-### A. Mengapa Z-Score Jurnal JUTISI dengan $N=2$ Sampel Per Hari-Jam Rapuh?
-Pada data 2 minggu yang dipetakan ke jadwal mingguan (`7 hari × 24 jam = 168 slot jam`, atau `672 slot 15-menit`), setiap pasangan `(Hari, Jam)` tepat hanya memiliki **$N = 2$ sampel** (*Minggu-1* dan *Minggu-2*). Secara statistik, rumus $UCL = \mu + k \cdot s$ dengan $N=2$ mengalami tiga masalah mendasar:
-1. **Standar Deviasi $N=2$ Tidak Stabil**: $s = |x_1 - x_2| / \sqrt{2}$. Jika Minggu-1 dan Minggu-2 sama-sama `0`, maka $s = 0$ (ambang menjadi sangat kaku dan rentan alarm palsu). Sebaliknya jika penghuni rumah menggeser jam mandi (misalnya *Minggu 08:00* pada W1 = `0.00` dan W2 = `1.04 L/min`), maka $UCL$ melonjak hingga `~2.0 L/min` sehingga kebocoran sedang (`0.50 L/min × 4`) lolos begitu saja.
-2. **Gagal Jika $N=1$ (Holdout / Leave-One-Out)**: Pada validasi *1-minggu* atau *Leave-One-Day-Out*, `s` (`ddof=1`) tidak terdefinisi (`0/0`) dan memicu false positive tinggi (**35,71%** di Holdout W1→W2, **27,98%** di 14-Fold LODO CV).
-3. **Rentan Pergeseran Jadwal 15 Menit**: Pada uji 30 skenario, Z-Score 15-menit (`JUTISI`) memicu **50,0% False Positive Rate** karena pergeseran mandi 15–30 menit dianggap anomali.
+### A. Mengatasi Keterbatasan 2 Sampel Per Hari-Jam
+Pada data berdurasi 2 minggu, setiap slot `(Hari, Jam)` tepat memiliki 2 pengamatan (*Minggu-1* dan *Minggu-2*). Bila tiap slot diisolasi terpisah (*Per-Slot AIS N=2*), model mudah memicu false alarm ketika penghuni menggeser jam mandi (`19,64%` FPR di Holdout W1→W2 dan `17,86%` FPR di 14-Fold LODO CV).
 
-### B. Mekanisme AIS Mengatasi Keterbatasan 2 Sampel
-Alih-alih mengisolasi setiap `(Hari, Jam)` menjadi `168` pulau terpisah yang hanya berisi 2 angka (*Per-Slot AIS* gagal **19,64% FPR** pada Holdout dan **17,86% FPR** pada LODO CV), **WaterAIS V-Detector** bekerja dengan mekanisme berikut:
-1. **Agregator 1-Jam → Antigen 7D Terpadu**: Setiap jendela 1 jam (`4 × 15 menit`) diekstrak menjadi vektor 7 dimensi:
-   $$\mathbf{x} = \big[\log(1+\bar{q}),\; \log(1+q_{\max}),\; r_{\text{aktif}},\; \log(1+q_{\min}),\; \sin_{\text{jam}},\; \cos_{\text{jam}},\; \mathbb{I}_{\text{akhir pekan}}\big]$$
-   Seluruh `336` blok jam dari 14 hari membentuk **Self-Space** terpadu. Setiap jam tidak lagi berdiri sendiri dari 2 angka, melainkan mendapat dukungan kontekstual dari ~42 tetangga sirkadian (`±1 jam` lintas 14 hari).
-2. **Thymus Censorship (Negative Selection)**: Sistem membangkitkan kandidat sel imun di manifold fisik aliran air 4-slot + waktu sirkadian. Kandidat yang berjarak $\le r_{\text{self}}$ (`0.43`) dari sel *Self* manapun langsung digugurkan (*apoptsis*).
-3. **Mature V-Detectors Non-Self**: Kandidat yang lolos menjadi detektor dewasa beradius variabel $r_d = d_{\text{self}} - r_{\text{self}}$, membungkus rapat komplemen ruang *Self* (termasuk seluruh rezim aliran kontinyu `4/4`, aktivitas tak wajar jam tidur `00:00–05:59` & `20:00–23:59`, serta lonjakan debit ekstrem).
-4. **Inferensi 1-Jam Real-Time (`Tumbling` & `Sliding Window`)**: Bila sebuah jendela 1 jam mengaktifkan $\ge 1$ V-Detector, jam tersebut diklasifikasikan **ANOMALI**, didiagnosis penyebabnya, dan pada mode **AUTO** memicu sinyal penutupan *Solenoid Valve*.
+**WaterAIS V-Detector** menggabungkan seluruh **`336` blok jam** ke dalam **Self-Space 7 dimensi terpadu** menggunakan vektor fitur ternormalisasi:
+$$\mathbf{x} = \Phi(\mathbf{q}, h, D) = \left[\frac{\ln(1+\bar{q})}{s_0},\; \frac{\ln(1+q_{\max})}{s_1},\; \frac{r_{\text{aktif}}}{s_2},\; \frac{\ln(1+q_{\min})}{s_3},\; \frac{\sin_h}{s_4},\; \frac{\cos_h}{s_5},\; \frac{\mathbb{I}_{\text{wknd}}}{s_6}\right]$$
+dengan vektor bobot imunologis $\mathbf{W} = [1.40, 1.30, 0.85, 2.20, 3.20, 3.20, 0.25]$.
+
+1. **Thymus Censorship (Negative Selection)**: Kandidat detektor yang berjarak Euclidean berbobot $\le r_{\text{self}}$ (`0.43`) dari sel *Self* manapun mengalami apoptosis. Kandidat yang lolos menjadi *Mature V-Detector* dengan radius variabel $r_k = \min_{\mathbf{s}_j \in S} d_w(\mathbf{c}_k, \mathbf{s}_j) - r_{\text{self}}$.
+2. **Keputusan Klasifikasi Sejati (Ruang 7D)**: Blok 1-jam dinyatakan **ANOMALI** jika dan hanya jika berada dalam bola detektor ($\exists k: d_w(\mathbf{x}, \mathbf{c}_k) < r_k$), memicu diagnosis kategori anomali dan penutupan *Solenoid Valve* secara otomatis pada mode `AUTO`.
+3. **Proyeksi Dual-Manifold pada Grafik 24-Jam (`ais_upper_lpm` vs `ais_leak_limit_lpm`)**:
+   - **Kurva Biru Transparan (`ais_upper_lpm`)**: Memproyeksikan batas atas wajar pada irisan pola **intermiten 2/4 slot** ($\mathbf{q}_{\text{inter}}=[2\bar{q}, 2\bar{q}, 0, 0]$).
+   - **Batas Kebocoran Kontinyu (`ais_leak_limit_lpm`)**: Memproyeksikan ambang pemicu detektor pada pola **aliran kontinyu 4/4 slot** ($\mathbf{q}_{\text{leak}}=[\bar{q}, \bar{q}, \bar{q}, \bar{q}]$), sekitar `0,04–0,22 L/min`. Inilah alasan kebocoran halus `0.35 × 4` tetap terdeteksi **`X` Merah** walaupun titik rata-ratanya (`0.35 L/min`) berada di bawah kurva intermiten biru.
+   - **Overlay Oranye Transparan (`Z-Score UCL = mu + 2*sigma`)**: Disediakan opsional pada grafik 24-jam sebagai pembanding geometri ambang statistik mingguan.
 
 ---
 
-## 3. Ringkasan Hasil Evaluasi Empiris
+## 3. Ringkasan Evaluasi Empiris (Pure AIS, 20 Seed)
 
-### A. Validasi Data Normal Asli (Generalisasi Jadwal Tanpa Data Anomali Sintetis)
-| Metode | Holdout Minggu-1 → Minggu-2 (`168 jam`) | FPR Holdout | 14-Fold Leave-One-Day-Out (`336 jam`) | FPR LODO |
-| :--- | :---: | :---: | :---: | :---: |
-| **WaterAIS V-Detector (Context 7D)** | `2 / 168` FP | **1,19%** | `0 / 336` FP | **0,00%** |
-| **Per-Slot AIS (Slot Terisolasi N=1..2)** | `33 / 168` FP | 19,64% | `60 / 336` FP | 17,86% |
-| **Z-Score 1-Jam (Fallback N=1)** | `60 / 168` FP | 35,71% | `94 / 336` FP | 27,98% |
-
-### B. Benchmark Komparatif (30 Skenario Uji: 12 Normal Variatif + 18 Anomali 6 Kelas)
-| Metode | Accuracy | Precision | Recall | F1-Score | FPR | FNR |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Z-Score 15m (JUTISI, N=2)** | 80,00% | 75,00% | 100,00% | 85,71% | 50,00% | 0,00% |
-| **Z-Score 1h (Slot N=2)** | 90,00% | 94,12% | 88,89% | 91,43% | 8,33% | 11,11% |
-| **Per-Slot AIS (Slot N=2, 20 seed)** | 99,83% ± 0,73% | 99,74% | 100,00% | 99,86% | 0,42% | 0,00% |
-| **WaterAIS V-Detector (Context 7D, 20 seed)** | **98,67% ± 1,94%** | **100,00%** | **97,78%** | **98,85% ± 1,69%** | **0,00%** | 2,22% |
-
-> **Catatan:** Pada `seed=42`, WaterAIS V-Detector mencapai **30/30 (100,0%)**. Grafik lengkap tersimpan di `results/figures/` (`fig1` s.d. `fig5`).
+| Arsitektur / Pengujian | Holdout W1→W2 (168 jam) | 14-Fold LODO CV (336 jam) | 30 Skenario Uji (Accuracy / Precision / Recall / F1) |
+| :--- | :---: | :---: | :---: |
+| **WaterAIS V-Detector (Context 7D)** | `2/168` (**1,19% FPR**) | `0/336` (**0,00% FPR**) | **98,67%** / **100,00%** / **97,78%** / **98,85%** (FPR **0,00%**) |
+| **Per-Slot AIS (Ablasi 168×2 Terisolasi)** | `33/168` (19,64% FPR) | `60/336` (17,86% FPR) | 99,83% / 99,74% / 100,00% / 99,86% (rentan geser jadwal nyata) |
 
 ---
 
 ## 4. Cara Menjalankan Aplikasi
 
-Pastikan Python 3.9+ dan dependensi (`numpy`, `scipy`, `matplotlib`, `pytest`) sudah terpasang:
 ```bash
 cd d:\biocomputing-7\ais-problem
 pip install -r requirements.txt
 ```
 
-### 1) Dashboard Web Interaktif (Direkomendasikan)
-Menjalankan server HTTP lokal beserta REST API Python dan langsung membuka browser:
+### 1) Dashboard Web Interaktif
 ```bash
 python run_web.py
 ```
-Atau klik ganda **`run_web.bat`** di Windows Explorer.
-Server otomatis memilih port bebas mulai `http://127.0.0.1:8050/` dan menyediakan 5 tab interaktif:
-1. **Simulasi Harian & Agregator 1-Jam**: putar 24 jam, injeksi skenario kebocoran/pergeseran jam, kontrol `Mode: AUTO/MANUAL` & `Solenoid Valve`.
-2. **Lab Uji Mandiri (`4×15 Menit`)**: ketik angka aliran 15-menitan sendiri dan bandingkan putusan 4 metode sekaligus.
-3. **Data 2 Minggu & Mekanisme N=2**: heatmap interaktif `14 × 24` yang dapat diklik untuk membandingkan sampel Minggu-1 vs Minggu-2.
-4. **Ruang Imunologis & V-Detectors**: kurva *Thymus Censorship* & proyeksi 2D Self vs V-Detectors yang dapat dilatih ulang secara *real-time*.
-5. **Benchmark AIS vs Z-Score**: tabel & grafik evaluasi lengkap.
+Atau klik ganda **`run_web.bat`**. Menyediakan 4 tab interaktif:
+1. **Simulasi Harian & Threshold AIS**: Pilih model hari mingguan gabungan (`Sunday–Saturday`), uji terhadap `Minggu-1` / `Minggu-2` atau skenario injeksi, dan nyalakan/matikan overlay transparan **Threshold AIS (Biru)** vs **Threshold Z-Score (Oranye)**.
+2. **Data 2 Minggu & Penggabungan Self**: Heatmap `14 × 24` interaktif + inspektor sampel M1/M2 dan dukungan sirkadian AIS.
+3. **Ruang Imunologis & V-Detectors**: Kurva *Thymus Censorship*, proyeksi 2D Self vs V-Detectors, dan formulasi ambang AIS 7D.
+4. **Evaluasi & Validasi Kinerja AIS**: Evaluasi per kategori skenario, ablasi internal AIS, dan matriks 30 skenario uji.
 
 ### 2) Aplikasi Desktop Tkinter GUI
 ```bash
@@ -86,39 +69,9 @@ python app_tkinter.py
 ```
 Atau klik ganda **`run_tkinter.bat`**.
 
-### 3) Menjalankan Ulang Eksperimen & Grafik Publikasi
+### 3) Menjalankan Ulang Eksperimen, Grafik, & Pengujian
 ```bash
 python run_experiments.py
 python analyze_results.py
-```
-Output JSON dan 5 grafik PNG resolusi tinggi disimpan di `results/` dan `results/figures/`.
-
-### 4) Pengujian Otomatis (`pytest`)
-```bash
 pytest -v test_ais.py
 ```
-
----
-
-## 5. Struktur Berkas
-
-```text
-ais-problem/
-├── Model-dataset-2 weeks.txt                # Dataset asli 1.344 interval (14 hari x 96)
-├── Jurnal-Deteksi_Anomali_Air_IoT_ZSkor_JUTISI.pdf
-├── dataset_loader.py                        # Parser dataset 15-menit & metadata mingguan
-├── aggregator.py                            # Agregator 1-jam (tumbling/sliding) & vektor antigen 7D
-├── ais_detector.py                          # WaterAISVDetector (7D) & PerSlotNSA (168x2)
-├── zscore_baseline.py                       # Baseline Z-Score 15m (JUTISI) & 1h
-├── scenarios.py                             # 30 skenario uji berlabel (12 normal + 18 anomali)
-├── run_experiments.py                       # Holdout W1->W2, 14-Fold LODO, 20-seed & sensitivitas
-├── analyze_results.py                       # Generator 5 grafik PNG & benchmark_summary.md
-├── run_web.py / run_web.bat                 # Server Web + REST API JSON lokal
-├── web/ (index.html, style.css, app.js)     # Antarmuka Dashboard Web interaktif
-├── app_tkinter.py / run_tkinter.bat         # Aplikasi Desktop Tkinter + Matplotlib
-├── test_ais.py                              # Suite pengujian pytest (5 test)
-├── requirements.txt                         # Daftar dependensi Python
-├── results/                                 # JSON metrik, benchmark_summary.md, & figures/*.png
-└── README.md
-```
-

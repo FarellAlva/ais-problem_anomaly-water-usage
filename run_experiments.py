@@ -1,14 +1,13 @@
 """
-run_experiments.py — Evaluasi Empiris & Benchmark Komparatif AIS vs Z-Score
+run_experiments.py — Evaluasi Empiris & Ablasi Internal Artificial Immune System (WaterAIS)
 
-Menjalankan rangkaian eksperimen lengkap:
+Menjalankan rangkaian eksperimen lengkap yang berfokus pada model AIS:
 1. Validasi Holdout (Train Minggu-1 -> Uji Minggu-2 normal 168 jam)
 2. Validasi Silang 14-Fold Leave-One-Day-Out (uji seluruh 336 jam normal asli)
-3. Benchmark Multi-Seed (20 seed) pada 30 Skenario Uji Berlabel (12 Normal + 18 Anomali):
-   - WaterAISVDetector (Context-Aware V-Detector + Clonal Boundary Probing)
-   - PerSlotNSA (AIS Per-Slot 168 x 2 sampel)
-   - ZScore15MinBaseline (Jurnal JUTISI 672 x 2 sampel + aturan 1 jam)
-   - ZScore1HourBaseline (Z-Score Agregator 1-Jam 168 x 2 sampel)
+3. Evaluasi Multi-Seed (20 seed) pada 30 Skenario Uji Berlabel (12 Normal + 18 Anomali):
+   - WaterAISVDetector (Model Utama: Context-Aware 7D V-Detector + Boundary Probing)
+   - PerSlotNSA (Ablasi Internal: AIS Per-Slot 168 x 2 sampel terisolasi)
+   - Pemecahan kinerja per kategori skenario (Normal Shift/Noise/Weekend & 6 Kelas Anomali)
 4. Analisis Sensitivitas Parameter AIS:
    - Variasi radius toleransi Self (r_self)
    - Variasi jumlah detektor dewasa (max_detectors)
@@ -21,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections import defaultdict
 from typing import Dict, List, Sequence
 
 import numpy as np
@@ -29,7 +29,6 @@ from aggregator import HourlyAntigen, aggregate_tumbling_1h
 from ais_detector import PerSlotNSA, WaterAISVDetector
 from dataset_loader import load_water_dataset, summarize_dataset
 from scenarios import LabeledHourScenario, build_benchmark_scenarios
-from zscore_baseline import ZScore15MinBaseline, ZScore1HourBaseline
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -72,8 +71,8 @@ def run_holdout_week1_to_week2(
     seed: int = 42,
 ) -> Dict[str, object]:
     """
-    Melatih pada Minggu-1 (168 jam, hanya 1 sampel per slot mingguan N=1) dan menguji FPR pada Minggu-2 (168 jam).
-    Membandingkan WaterAISVDetector vs PerSlotNSA vs ZScore1HourBaseline.
+    Melatih pada Minggu-1 (168 jam) dan menguji False Positive Rate pada Minggu-2 (168 jam)
+    untuk WaterAISVDetector (Context 7D) vs PerSlotNSA (Slot Terisolasi N=1).
     """
     w1 = [ag for ag in antigens if ag.week_number == 1]
     w2 = [ag for ag in antigens if ag.week_number == 2]
@@ -85,9 +84,6 @@ def run_holdout_week1_to_week2(
     ps = PerSlotNSA(r_self=0.43, n_detectors_per_slot=60, seed=seed).fit(w1)
     ps_fp = sum(1 for ag in w2 if ps.predict_hour(ag).is_anomaly)
 
-    z1h = ZScore1HourBaseline(k=2.0, ucl_min=0.08).fit(w1)
-    z1h_fp = sum(1 for ag in w2 if z1h.predict_hour(ag).is_anomaly)
-
     return {
         "train_hours": len(w1),
         "test_hours": len(w2),
@@ -97,8 +93,6 @@ def run_holdout_week1_to_week2(
         "fp_examples": fp_list[:10],
         "perslot_false_positives": ps_fp,
         "perslot_fpr": round(ps_fp / len(w2), 4),
-        "zscore_1h_false_positives": z1h_fp,
-        "zscore_1h_fpr": round(z1h_fp / len(w2), 4),
     }
 
 
@@ -108,12 +102,11 @@ def run_leave_one_day_out(
 ) -> Dict[str, object]:
     """
     14-Fold Leave-One-Day-Out Cross-Validation di seluruh 336 jam normal asli.
-    Membandingkan WaterAISVDetector (Self 7D terpadu) vs PerSlotNSA & ZScore1Hour (slot terisolasi).
+    Membandingkan ablasi internal: WaterAISVDetector (Self 7D terpadu) vs PerSlotNSA (slot terisolasi).
     """
     per_day = []
     total_fp = 0
     ps_total_fp = 0
-    z1h_total_fp = 0
     total_hours = 0
 
     for day_num in range(14):
@@ -121,23 +114,18 @@ def run_leave_one_day_out(
         test_set = [ag for ag in antigens if ag.day_number == day_num]
         ais = WaterAISVDetector(r_self=0.43, max_detectors=1500, max_attempts=25000, seed=seed + day_num).fit(train_set)
         ps = PerSlotNSA(r_self=0.43, n_detectors_per_slot=60, seed=seed + day_num).fit(train_set)
-        z1h = ZScore1HourBaseline(k=2.0, ucl_min=0.08).fit(train_set)
 
         fps = []
         ps_fp_day = 0
-        z1h_fp_day = 0
         for ag in test_set:
             res = ais.predict_hour(ag)
             if res.is_anomaly:
                 fps.append({"label": ag.label, "flows": ag.slot_flows, "margin": round(res.max_detector_margin, 4)})
             if ps.predict_hour(ag).is_anomaly:
                 ps_fp_day += 1
-            if z1h.predict_hour(ag).is_anomaly:
-                z1h_fp_day += 1
 
         total_fp += len(fps)
         ps_total_fp += ps_fp_day
-        z1h_total_fp += z1h_fp_day
         total_hours += len(test_set)
         per_day.append(
             {
@@ -148,7 +136,6 @@ def run_leave_one_day_out(
                 "fp": len(fps),
                 "fpr": round(len(fps) / len(test_set), 4),
                 "perslot_fp": ps_fp_day,
-                "zscore_1h_fp": z1h_fp_day,
                 "fp_details": fps,
             }
         )
@@ -160,40 +147,19 @@ def run_leave_one_day_out(
         "overall_fpr": round(total_fp / total_hours, 4),
         "perslot_total_fp": ps_total_fp,
         "perslot_overall_fpr": round(ps_total_fp / total_hours, 4),
-        "zscore_1h_total_fp": z1h_total_fp,
-        "zscore_1h_overall_fpr": round(z1h_total_fp / total_hours, 4),
         "per_day": per_day,
     }
 
 
-def run_comparative_benchmark(
-    records,
+def run_ais_evaluation(
     antigens: List[HourlyAntigen],
     scenarios: List[LabeledHourScenario],
     n_seeds: int = 20,
 ) -> Dict[str, object]:
-    """Membandingkan AIS V-Detector, Per-Slot NSA, Z-Score 15m, dan Z-Score 1h."""
+    """Mengevaluasi WaterAISVDetector (Model Utama) & PerSlotNSA (Ablasi Internal) pada 20 seed."""
     y_true = [sc.expected_anomaly for sc in scenarios]
 
-    # 1. Z-Score 15-min (Deterministik)
-    t0 = time.perf_counter()
-    z15 = ZScore15MinBaseline(k=2.0, ucl_min=0.20).fit(records)
-    z15_train_s = time.perf_counter() - t0
-    t1 = time.perf_counter()
-    z15_preds = [z15.predict_hour(sc.antigen) for sc in scenarios]
-    z15_inf_ms = (time.perf_counter() - t1) * 1000.0 / len(scenarios)
-    z15_metrics = compute_classification_metrics(y_true, [p.is_anomaly for p in z15_preds])
-
-    # 2. Z-Score 1-Hour (Deterministik)
-    t0 = time.perf_counter()
-    z1h = ZScore1HourBaseline(k=2.0, ucl_min=0.08).fit(antigens)
-    z1h_train_s = time.perf_counter() - t0
-    t1 = time.perf_counter()
-    z1h_preds = [z1h.predict_hour(sc.antigen) for sc in scenarios]
-    z1h_inf_ms = (time.perf_counter() - t1) * 1000.0 / len(scenarios)
-    z1h_metrics = compute_classification_metrics(y_true, [p.is_anomaly for p in z1h_preds])
-
-    # 3. Per-Slot NSA (20 Seeds)
+    # 1. Per-Slot NSA (Ablasi Internal AIS, 20 Seeds)
     perslot_runs = []
     perslot_seed0_preds = None
     for s in range(n_seeds):
@@ -210,10 +176,12 @@ def run_comparative_benchmark(
         m["inf_ms_per_hour"] = round(inf_ms, 4)
         perslot_runs.append(m)
 
-    # 4. WaterAISVDetector (20 Seeds)
+    # 2. WaterAISVDetector (Model Utama 7D, 20 Seeds)
     vdet_runs = []
     vdet_seed0_preds = None
     vdet_seed0_trace = None
+    cat_hits: Dict[str, List[float]] = defaultdict(list)
+
     for s in range(n_seeds):
         ais = WaterAISVDetector(r_self=0.43, max_detectors=1500, max_attempts=25000, seed=42 + s).fit(antigens)
         t1 = time.perf_counter()
@@ -226,6 +194,14 @@ def run_comparative_benchmark(
         m["train_time_sec"] = round(ais.trace.train_time_sec, 4) if ais.trace else 0.0
         m["inf_ms_per_hour"] = round(inf_ms, 4)
         vdet_runs.append(m)
+
+        # Catat akurasi/kelulusan per kategori skenario
+        by_cat: Dict[str, List[bool]] = defaultdict(list)
+        for sc, pr in zip(scenarios, preds):
+            group = "normal_all" if not sc.expected_anomaly else sc.category
+            by_cat[group].append(pr.is_anomaly == sc.expected_anomaly)
+        for cat_k, ok_list in by_cat.items():
+            cat_hits[cat_k].append(sum(ok_list) / len(ok_list))
 
     def summarize_runs(runs: List[Dict[str, float]]) -> Dict[str, object]:
         keys = ["accuracy", "precision", "recall", "f1_score", "fpr", "fnr", "train_time_sec", "inf_ms_per_hour"]
@@ -240,10 +216,34 @@ def run_comparative_benchmark(
             }
         return out
 
-    # Detail per skenario untuk inspeksi kasus gagal/berhasil
-    scenario_comparison = []
+    category_labels = {
+        "normal_all": ("Pola Normal Variatif (12 Skenario)", False, 12),
+        "slow_leak": ("Kebocoran Halus Kontinyu (3)", True, 3),
+        "night_leak": ("Kebocoran Jam Malam (3)", True, 3),
+        "night_open_tap": ("Keran Lupa Ditutup Malam (3)", True, 3),
+        "off_schedule_burst": ("Lonjakan Jam Sepi (3)", True, 3),
+        "extreme_burst": ("Pipa Pecah / Ekstrem (3)", True, 3),
+        "continuous_high": ("Banjir Aliran Kontinyu (3)", True, 3),
+    }
+    per_category_summary = []
+    for key, (label, is_anom, cnt) in category_labels.items():
+        vals = cat_hits.get(key, [0.0])
+        per_category_summary.append(
+            {
+                "category": key,
+                "label": label,
+                "is_anomaly_class": is_anom,
+                "n_scenarios": cnt,
+                "correct_rate_mean": round(float(np.mean(vals)), 4),
+                "correct_rate_std": round(float(np.std(vals)), 4),
+            }
+        )
+
+    scenario_details = []
     for idx, sc in enumerate(scenarios):
-        scenario_comparison.append(
+        pr = vdet_seed0_preds[idx] if vdet_seed0_preds else None
+        ps_pr = perslot_seed0_preds[idx] if perslot_seed0_preds else None
+        scenario_details.append(
             {
                 "scenario_id": sc.scenario_id,
                 "name": sc.name,
@@ -252,12 +252,15 @@ def run_comparative_benchmark(
                 "day_name": sc.antigen.day_name,
                 "hour": sc.antigen.hour,
                 "slot_flows": list(sc.antigen.slot_flows),
+                "active_slots": sc.antigen.active_slots,
                 "mean_flow_lpm": round(sc.antigen.mean_flow_lpm, 4),
-                "zscore_15m": z15_preds[idx].is_anomaly,
-                "zscore_1h": z1h_preds[idx].is_anomaly,
-                "perslot_ais": perslot_seed0_preds[idx].is_anomaly if perslot_seed0_preds else False,
-                "vdetector_ais": vdet_seed0_preds[idx].is_anomaly if vdet_seed0_preds else False,
-                "vdetector_reason": vdet_seed0_preds[idx].reason if vdet_seed0_preds else "",
+                "perslot_ais": ps_pr.is_anomaly if ps_pr else False,
+                "vdetector_ais": pr.is_anomaly if pr else False,
+                "vdetector_min_dist": round(pr.min_dist_to_self, 4) if pr else 0.0,
+                "vdetector_margin": round(pr.max_detector_margin, 4) if pr else 0.0,
+                "vdetector_triggered": pr.triggered_detectors if pr else 0,
+                "vdetector_diagnosis": pr.anomaly_category if pr else "",
+                "vdetector_reason": pr.reason if pr else "",
             }
         )
 
@@ -266,21 +269,12 @@ def run_comparative_benchmark(
         "n_normal_scenarios": sum(1 for y in y_true if not y),
         "n_anomaly_scenarios": sum(1 for y in y_true if y),
         "models": {
-            "ZScore_15Min_JUTISI": {
-                **z15_metrics,
-                "train_time_sec": round(z15_train_s, 4),
-                "inf_ms_per_hour": round(z15_inf_ms, 4),
-            },
-            "ZScore_1Hour_N2": {
-                **z1h_metrics,
-                "train_time_sec": round(z1h_train_s, 4),
-                "inf_ms_per_hour": round(z1h_inf_ms, 4),
-            },
             "PerSlot_AIS_N2": summarize_runs(perslot_runs),
             "WaterAIS_VDetector": summarize_runs(vdet_runs),
         },
+        "per_category_performance": per_category_summary,
         "vdetector_seed0_trace": vdet_seed0_trace,
-        "scenario_comparison": scenario_comparison,
+        "scenario_comparison": scenario_details,
     }
 
 
@@ -359,8 +353,8 @@ def main() -> None:
     lodo = run_leave_one_day_out(antigens)
     print(f"Total hours={lodo['total_hours']}, Total FP={lodo['total_fp']}, Overall FPR={lodo['overall_fpr']}")
 
-    print("\n=== 3. Benchmark Komparatif (20 Seeds AIS vs Z-Score) ===")
-    bench = run_comparative_benchmark(records, antigens, scenarios, n_seeds=20)
+    print("\n=== 3. Evaluasi Multi-Seed WaterAIS & Ablasi Internal (20 Seeds) ===")
+    bench = run_ais_evaluation(antigens, scenarios, n_seeds=20)
     print(json.dumps(bench["models"], indent=2))
 
     print("\n=== 4. Studi Sensitivitas r_self & max_detectors ===")

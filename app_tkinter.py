@@ -1,9 +1,10 @@
 """
 app_tkinter.py — Aplikasi Desktop Tkinter + Matplotlib untuk Deteksi Anomali Air Berbasis AIS
 
-Mengadaptasi tata letak antarmuka IoT pada Gambar 9 Jurnal JUTISI (Control & Status,
-Live vs Normal Flow Chart, Sandbox Agregator 1-Jam, dan Log Anomali Per-Jam)
-dengan mesin deteksi Artificial Immune System (WaterAISVDetector) dan pembanding Z-Score.
+Menyediakan antarmuka desktop IoT murni Artificial Immune System (WaterAISVDetector):
+1. Control & Monitoring AIS (24 Jam) dengan overlay transparan Threshold AIS (Biru) vs Z-Score (Oranye)
+2. Anomaly Logs AIS Per-Jam
+3. Ruang V-Detector AIS (Thymus Censorship & Proyeksi 2D)
 
 Jalankan:
     python app_tkinter.py
@@ -23,12 +24,12 @@ import numpy as np
 
 from aggregator import aggregate_tumbling_1h, build_hourly_antigen
 from ais_detector import WaterAISVDetector
-from dataset_loader import DAYS_ORDER, load_water_dataset
-from zscore_baseline import ZScore15MinBaseline, ZScore1HourBaseline
+from dataset_loader import DAYS_ID_MAP, DAYS_ORDER, load_water_dataset
+from zscore_baseline import ZScore1HourBaseline
 
 
 class WaterAISTkinterApp:
-    """GUI Desktop Tkinter untuk simulasi dan uji Deteksi Anomali Air Berbasis AIS."""
+    """GUI Desktop Tkinter untuk simulasi dan pemantauan Deteksi Anomali Air Berbasis AIS."""
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -36,10 +37,9 @@ class WaterAISTkinterApp:
         self.root.geometry("1360x860")
         self.root.minsize(1100, 700)
 
-        # Muat dataset & latih model awal
+        # Muat dataset & latih model AIS + utilitas kurva Z-Score grafik
         self.records = load_water_dataset()
         self.antigens = aggregate_tumbling_1h(self.records)
-        self.z15 = ZScore15MinBaseline(k=2.0, ucl_min=0.20).fit(self.records)
         self.z1h = ZScore1HourBaseline(k=2.0, ucl_min=0.08).fit(self.antigens)
         self.ais = WaterAISVDetector(r_self=0.43, max_detectors=1500, max_attempts=25000, seed=42).fit(
             self.antigens
@@ -51,18 +51,20 @@ class WaterAISTkinterApp:
         self.r_self_var = tk.DoubleVar(value=0.43)
         self.max_det_var = tk.IntVar(value=1500)
 
-        # State simulasi harian
-        self.day_labels = [
-            f"Hari {d+1:02d}: {self.antigens[d*24].day_name}, {self.antigens[d*24].date_str} (M{self.antigens[d*24].week_number})"
-            for d in range(14)
-        ]
-        self.sim_day_var = tk.StringVar(value=self.day_labels[13])
+        # State simulasi harian (Model Mingguan Gabungan M1+M2)
+        self.weekday_labels = [f"{d} ({DAYS_ID_MAP[d]})" for d in DAYS_ORDER]
+        self.sim_weekday_var = tk.StringVar(value=self.weekday_labels[6])  # Saturday (Sabtu)
+        self.sim_week_var = tk.StringVar(value="Data Asli Minggu-2")
         self.sim_preset_var = tk.StringVar(value="Tanpa Injeksi (Asli)")
-        self.sim_hour_var = tk.IntVar(value=10)
+        self.sim_hour_var = tk.IntVar(value=8)
+        self.show_ais_var = tk.BooleanVar(value=True)
+        self.show_zscore_var = tk.BooleanVar(value=True)
+        self.show_mean_var = tk.BooleanVar(value=True)
         self.sim_cursor = 23
         self.is_playing = False
         self.play_after_id: Optional[str] = None
         self.sim_hours_data: List[dict] = []
+        self.sim_profile: List[dict] = []
 
         self._build_ui()
         self.run_day_simulation()
@@ -122,22 +124,19 @@ class WaterAISTkinterApp:
             pady=4,
         ).pack(side=tk.RIGHT, padx=4)
 
-        # Notebook tabs (mirip Gambar 9 Jurnal JUTISI)
+        # Notebook tabs (3 Tab Murni AIS)
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=8)
 
         self.tab_sim = ttk.Frame(self.notebook)
-        self.tab_lab = ttk.Frame(self.notebook)
         self.tab_logs = ttk.Frame(self.notebook)
         self.tab_ais = ttk.Frame(self.notebook)
 
-        self.notebook.add(self.tab_sim, text="  Control & Live vs Normal (24 Jam)  ")
-        self.notebook.add(self.tab_lab, text="  Sandbox Agregator 1-Jam (4x15m)  ")
-        self.notebook.add(self.tab_logs, text="  Anomaly Logs Per-Jam  ")
+        self.notebook.add(self.tab_sim, text="  Control & Monitoring AIS (24 Jam)  ")
+        self.notebook.add(self.tab_logs, text="  Anomaly Logs AIS Per-Jam  ")
         self.notebook.add(self.tab_ais, text="  Ruang V-Detector AIS  ")
 
         self._build_sim_tab()
-        self._build_lab_tab()
         self._build_logs_tab()
         self._build_ais_tab()
 
@@ -145,9 +144,15 @@ class WaterAISTkinterApp:
         left = ttk.LabelFrame(self.tab_sim, text=" Kontrol Simulasi & Parameter AIS ", padding=10)
         left.pack(side=tk.LEFT, fill=tk.Y, padx=(4, 8), pady=4)
 
-        ttk.Label(left, text="Pilih Hari (Dataset 2 Minggu):").pack(anchor=tk.W)
-        cb_day = ttk.Combobox(left, textvariable=self.sim_day_var, values=self.day_labels, state="readonly", width=34)
-        cb_day.pack(fill=tk.X, pady=(2, 8))
+        ttk.Label(left, text="Model Hari (Gabungan M1+M2):").pack(anchor=tk.W)
+        cb_day = ttk.Combobox(left, textvariable=self.sim_weekday_var, values=self.weekday_labels, state="readonly", width=34)
+        cb_day.pack(fill=tk.X, pady=(2, 6))
+        cb_day.bind("<<ComboboxSelected>>", lambda _e: self.run_day_simulation())
+
+        ttk.Label(left, text="Data Uji (Live Flow):").pack(anchor=tk.W)
+        cb_wk = ttk.Combobox(left, textvariable=self.sim_week_var, values=["Data Asli Minggu-1", "Data Asli Minggu-2"], state="readonly", width=34)
+        cb_wk.pack(fill=tk.X, pady=(2, 6))
+        cb_wk.bind("<<ComboboxSelected>>", lambda _e: self.run_day_simulation())
 
         ttk.Label(left, text="Skenario Injeksi Anomali:").pack(anchor=tk.W)
         presets = [
@@ -159,17 +164,24 @@ class WaterAISTkinterApp:
             "Uji Normal: Geser Jam Mandi (0, 2.35, 0, 0)",
         ]
         cb_pre = ttk.Combobox(left, textvariable=self.sim_preset_var, values=presets, state="readonly", width=34)
-        cb_pre.pack(fill=tk.X, pady=(2, 8))
+        cb_pre.pack(fill=tk.X, pady=(2, 6))
+        cb_pre.bind("<<ComboboxSelected>>", lambda _e: self.run_day_simulation())
 
         ttk.Label(left, text="Jam Injeksi (0 - 23):").pack(anchor=tk.W)
-        ttk.Spinbox(left, from_=0, to=23, textvariable=self.sim_hour_var, width=10).pack(anchor=tk.W, pady=(2, 10))
+        ttk.Spinbox(left, from_=0, to=23, textvariable=self.sim_hour_var, width=10).pack(anchor=tk.W, pady=(2, 8))
 
         btn_row = ttk.Frame(left)
         btn_row.pack(fill=tk.X, pady=4)
-        ttk.Button(btn_row, text="Jalankan 24 Jam", command=self.run_day_simulation).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 3))
+        ttk.Button(btn_row, text="Perbarui", command=self.run_day_simulation).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 3))
         self.btn_play = ttk.Button(btn_row, text="Play", command=self.toggle_play)
         self.btn_play.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=3)
         ttk.Button(btn_row, text="+1 Jam", command=self.step_hour).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(3, 0))
+
+        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
+        ttk.Label(left, text="Overlay Threshold Grafik:", font=("Segoe UI", 9, "bold")).pack(anchor=tk.W)
+        ttk.Checkbutton(left, text="Threshold AIS (Biru Transparan)", variable=self.show_ais_var, command=self._refresh_sim_visuals).pack(anchor=tk.W)
+        ttk.Checkbutton(left, text="Threshold Z-Score (Oranye Transparan)", variable=self.show_zscore_var, command=self._refresh_sim_visuals).pack(anchor=tk.W)
+        ttk.Checkbutton(left, text="Rata-rata Gabungan (Mean)", variable=self.show_mean_var, command=self._refresh_sim_visuals).pack(anchor=tk.W)
 
         ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
         ttk.Label(left, text="Parameter AIS V-Detector:", font=("Segoe UI", 9, "bold")).pack(anchor=tk.W)
@@ -192,61 +204,19 @@ class WaterAISTkinterApp:
         self.canvas_sim = FigureCanvasTkAgg(self.fig_sim, master=right)
         self.canvas_sim.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-    def _build_lab_tab(self) -> None:
-        frm = ttk.Frame(self.tab_lab, padding=14)
-        frm.pack(fill=tk.BOTH, expand=True)
-
-        inp = ttk.LabelFrame(frm, text=" Input 4 Slot x 15 Menit (Agregator 1-Jam) ", padding=12)
-        inp.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 12))
-
-        self.lab_day = tk.StringVar(value="Monday")
-        self.lab_hour = tk.IntVar(value=10)
-        self.lab_q = [tk.DoubleVar(value=0.35) for _ in range(4)]
-
-        ttk.Label(inp, text="Hari:").pack(anchor=tk.W)
-        ttk.Combobox(inp, textvariable=self.lab_day, values=list(DAYS_ORDER), state="readonly", width=22).pack(fill=tk.X, pady=(2, 8))
-        ttk.Label(inp, text="Jam (0 - 23):").pack(anchor=tk.W)
-        ttk.Spinbox(inp, from_=0, to=23, textvariable=self.lab_hour, width=10).pack(anchor=tk.W, pady=(2, 8))
-
-        for i, var in enumerate(self.lab_q):
-            ttk.Label(inp, text=f"Slot {i+1} ({i*15:02d}-{(i+1)*15:02d} mnt) L/min:").pack(anchor=tk.W)
-            ttk.Entry(inp, textvariable=var, width=16).pack(anchor=tk.W, pady=(1, 6))
-
-        ttk.Button(inp, text="Evaluasi AIS vs Z-Score", command=self.evaluate_sandbox).pack(fill=tk.X, pady=8)
-
-        presets = [
-            ("Kebocoran Halus (10:00)", "Monday", 10, (0.35, 0.35, 0.35, 0.35)),
-            ("Keran Terbuka (03:00)", "Tuesday", 3, (1.20, 1.20, 0.00, 0.00)),
-            ("Mandi Geser Jam (Min 07:00)", "Sunday", 7, (0.00, 2.35, 0.00, 0.00)),
-            ("Pipa Pecah (08:00)", "Tuesday", 8, (5.20, 4.80, 0.00, 0.00)),
-        ]
-        for title, d, h, qs in presets:
-            ttk.Button(
-                inp,
-                text=title,
-                command=lambda d=d, h=h, qs=qs: self._load_sandbox_preset(d, h, qs),
-            ).pack(fill=tk.X, pady=2)
-
-        out = ttk.LabelFrame(frm, text=" Hasil Diagnosis Komparatif ", padding=12)
-        out.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-        self.txt_lab = tk.Text(out, font=("Consolas", 10), wrap=tk.WORD, bg="#f8fafc", relief=tk.FLAT)
-        self.txt_lab.pack(fill=tk.BOTH, expand=True)
-        self.evaluate_sandbox()
-
     def _build_logs_tab(self) -> None:
-        cols = ("jam", "slots", "mean", "aktif", "ais", "z15", "z1h", "diagnosis")
+        cols = ("jam", "slots", "mean", "aktif", "ais", "jarak", "diagnosis")
         self.tree = ttk.Treeview(self.tab_logs, columns=cols, show="headings")
         headers = {
             "jam": "Jam",
             "slots": "4 x 15 Menit (L/min)",
             "mean": "Rata-rata (L/min)",
             "aktif": "Aktif",
-            "ais": "AIS V-Detector",
-            "z15": "Z-Score 15m",
-            "z1h": "Z-Score 1h",
-            "diagnosis": "Diagnosis & Aksi Valve",
+            "ais": "Keputusan AIS",
+            "jarak": "Jarak Self / Margin",
+            "diagnosis": "Diagnosis Imunologis & Aksi Valve",
         }
-        widths = {"jam": 70, "slots": 190, "mean": 115, "aktif": 65, "ais": 110, "z15": 100, "z1h": 100, "diagnosis": 360}
+        widths = {"jam": 70, "slots": 195, "mean": 135, "aktif": 65, "ais": 115, "jarak": 155, "diagnosis": 370}
         for c in cols:
             self.tree.heading(c, text=headers[c])
             self.tree.column(c, width=widths[c])
@@ -257,45 +227,6 @@ class WaterAISTkinterApp:
         self.canvas_ais = FigureCanvasTkAgg(self.fig_ais, master=self.tab_ais)
         self.canvas_ais.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
         self._draw_ais_plots()
-
-    def _load_sandbox_preset(self, d: str, h: int, qs: tuple) -> None:
-        self.lab_day.set(d)
-        self.lab_hour.set(h)
-        for v, val in zip(self.lab_q, qs):
-            v.set(val)
-        self.evaluate_sandbox()
-
-    def evaluate_sandbox(self) -> None:
-        flows = [max(0.0, float(v.get())) for v in self.lab_q]
-        ag = build_hourly_antigen(flows, int(self.lab_hour.get()) % 24, self.lab_day.get())
-        r_ais = self.ais.predict_hour(ag, auto_mode=self.auto_mode.get())
-        r_z15 = self.z15.predict_hour(ag)
-        r_z1h = self.z1h.predict_hour(ag)
-
-        report = [
-            f"=== AGREGATOR 1-JAM ===",
-            f"Waktu       : {ag.day_name} pukul {ag.hour:02d}:00-{(ag.hour+1)%24:02d}:00",
-            f"4 Slot 15m  : {list(ag.slot_flows)} L/min",
-            f"Rata-rata   : {ag.mean_flow_lpm:.4f} L/min  | Total Volume: {ag.total_liters:.2f} Liter/jam",
-            f"Puncak/Min  : max={ag.max_flow_lpm:.2f} L/min, min={ag.min_flow_lpm:.2f} L/min, aktif={ag.active_slots}/4",
-            "",
-            f"--- 1. ARTIFICIAL IMMUNE SYSTEM (V-Detector Context 7D) ---",
-            f"Status      : {r_ais.status_label} (Keyakinan {r_ais.confidence_pct:.1f}%)",
-            f"Kategori    : {r_ais.anomaly_category}",
-            f"Pemicu      : {r_ais.triggered_detectors} V-Detectors (margin {r_ais.max_detector_margin:+.4f})",
-            f"Jarak Self  : {r_ais.min_dist_to_self:.4f} (r_self={self.ais.r_self:.2f}, terdekat: {r_ais.nearest_self_label})",
-            f"Aksi Valve  : {r_ais.valve_action}",
-            "",
-            f"--- 2. BASELINE Z-SCORE 15-MENIT (Jurnal JUTISI, N=2) ---",
-            f"Status      : {'ANOMALI' if r_z15.is_anomaly else 'NORMAL'}",
-            f"Penjelasan  : {r_z15.reason}",
-            "",
-            f"--- 3. BASELINE Z-SCORE 1-JAM (Slot N=2) ---",
-            f"Status      : {'ANOMALI' if r_z1h.is_anomaly else 'NORMAL'}",
-            f"Penjelasan  : {r_z1h.reason}",
-        ]
-        self.txt_lab.delete("1.0", tk.END)
-        self.txt_lab.insert(tk.END, "\n".join(report))
 
     def _update_valve_banner(self) -> None:
         self.btn_mode.config(text="Mode: AUTO" if self.auto_mode.get() else "Mode: MANUAL")
@@ -324,17 +255,32 @@ class WaterAISTkinterApp:
         ).fit(self.antigens)
         self._draw_ais_plots()
         self.run_day_simulation()
-        self.evaluate_sandbox()
         messagebox.showinfo(
             "Pelatihan Selesai",
             f"Berhasil melatih {len(self.ais.detectors)} Mature V-Detectors dalam {self.ais.trace.train_time_sec:.3f}s.",
         )
 
     def run_day_simulation(self) -> None:
-        day_idx = self.day_labels.index(self.sim_day_var.get()) if self.sim_day_var.get() in self.day_labels else 13
+        idx = self.weekday_labels.index(self.sim_weekday_var.get()) if self.sim_weekday_var.get() in self.weekday_labels else 6
+        target_day = DAYS_ORDER[idx]
+        target_week = 1 if "Minggu-1" in self.sim_week_var.get() else 2
         preset = self.sim_preset_var.get()
         inj_h = int(self.sim_hour_var.get()) % 24
-        day_ags = [ag for ag in self.antigens if ag.day_number == day_idx]
+        day_ags = [ag for ag in self.antigens if ag.day_name == target_day and ag.week_number == target_week]
+
+        ais_prof = self.ais.compute_weekday_threshold_profile(target_day)
+        self.sim_profile = []
+        for h in range(24):
+            zst = self.z1h.slot_stats.get((target_day, h))
+            self.sim_profile.append(
+                {
+                    "hour": h,
+                    "combined_mean": zst.mean if zst else 0.0,
+                    "zscore_ucl": zst.ucl_final if zst else 0.08,
+                    "ais_upper": ais_prof[h]["ais_upper_lpm"],
+                    "ais_leak_limit": ais_prof[h]["ais_leak_limit_lpm"],
+                }
+            )
 
         self.sim_hours_data = []
         self.valve_open = True
@@ -354,9 +300,7 @@ class WaterAISTkinterApp:
 
             cur = build_hourly_antigen(flows, ag.hour, ag.day_name, ag.date_str, ag.day_number, ag.week_number, ag.hour_index)
             r_ais = self.ais.predict_hour(cur, auto_mode=self.auto_mode.get())
-            r_z15 = self.z15.predict_hour(cur)
-            r_z1h = self.z1h.predict_hour(cur)
-            self.sim_hours_data.append({"ag": cur, "ais": r_ais, "z15": r_z15, "z1h": r_z1h})
+            self.sim_hours_data.append({"ag": cur, "ais": r_ais, "tp": self.sim_profile[ag.hour]})
 
         self.sim_cursor = 23
         self._refresh_sim_visuals()
@@ -404,35 +348,69 @@ class WaterAISTkinterApp:
         cur = shown[-1]
         ag = cur["ag"]
         ra = cur["ais"]
+        tp = cur["tp"]
         self.lbl_sim_detail.config(
             text=(
                 f"Jam Aktif : {ag.hour:02d}:00 - {(ag.hour+1)%24:02d}:00\n"
                 f"4x15m     : {list(ag.slot_flows)}\n"
-                f"Rata-rata : {ag.mean_flow_lpm:.3f} L/min ({ag.total_liters:.1f} L)\n"
+                f"Rata-rata : {ag.mean_flow_lpm:.3f} L/min (Mean M1+M2: {tp['combined_mean']:.3f})\n"
+                f"Proyeksi  : 2/4<={tp['ais_upper']:.2f} | 4/4>={tp['ais_leak_limit']:.2f}\n"
                 f"Status AIS: {ra.status_label} ({ra.confidence_pct:.1f}%)\n"
-                f"Diagnosis : {ra.anomaly_category}\n"
-                f"Z15m/Z1h  : {'ANOM' if cur['z15'].is_anomaly else 'Norm'} / {'ANOM' if cur['z1h'].is_anomaly else 'Norm'}"
+                f"Jarak Self: d={ra.min_dist_to_self:.3f} (margin={ra.max_detector_margin:+.3f})\n"
+                f"Diagnosis : {ra.anomaly_category}"
             )
         )
 
-        # Plot 24h
+        # Plot 24h Threshold Overlay (Biru AIS vs Oranye Z-Score + Live Flow)
         self.ax_sim.clear()
+        x_full = np.concatenate(([0.0], np.arange(24, dtype=float) + 0.5, [24.0]))
+
+        if self.show_ais_var.get() and self.sim_profile:
+            y_ais = np.array([p["ais_upper"] for p in self.sim_profile], dtype=float)
+            y_ais_band = np.concatenate(([y_ais[0]], y_ais, [y_ais[-1]]))
+            self.ax_sim.fill_between(x_full, 0, y_ais_band, color="#0ea5e9", alpha=0.20, label="Threshold AIS (Biru)")
+            self.ax_sim.plot(x_full, y_ais_band, color="#0284c7", lw=1.8)
+
+        if self.show_zscore_var.get() and self.sim_profile:
+            y_z = np.array([p["zscore_ucl"] for p in self.sim_profile], dtype=float)
+            y_z_band = np.concatenate(([y_z[0]], y_z, [y_z[-1]]))
+            self.ax_sim.fill_between(x_full, 0, y_z_band, color="#f97316", alpha=0.22, label="Threshold Z-Score (Oranye)")
+            self.ax_sim.plot(x_full, y_z_band, color="#ea580c", lw=1.8, ls="--")
+
+        if self.show_mean_var.get() and self.sim_profile:
+            hrs_all = np.arange(24, dtype=float) + 0.5
+            y_mean = [p["combined_mean"] for p in self.sim_profile]
+            self.ax_sim.plot(hrs_all, y_mean, color="#ca8a04", lw=1.5, ls=":", label="Mean Gabungan (M1+M2)")
+
         for idx, item in enumerate(shown):
-            a = item["ag"]
-            col = "#ef4444" if item["ais"].is_anomaly else "#38bdf8"
-            xs = [idx + s * 0.25 + 0.125 for s in range(4)]
-            self.ax_sim.bar(xs, a.slot_flows, width=0.2, color=col, alpha=0.82)
             if item["ais"].is_anomaly:
                 self.ax_sim.axvspan(idx, idx + 1, color="#fee2e2", alpha=0.45, zorder=0)
 
-        hrs = [i + 0.5 for i in range(len(shown))]
-        means = [it["ag"].mean_flow_lpm for it in shown]
-        self.ax_sim.plot(hrs, means, color="#0f172a", marker="o", markersize=4, lw=1.8, label="Rata-rata Agregator 1-Jam")
+        hrs = np.array([i + 0.5 for i in range(len(shown))], dtype=float)
+        means = np.array([it["ag"].mean_flow_lpm for it in shown], dtype=float)
+        anom_mask = np.array([it["ais"].is_anomaly for it in shown], dtype=bool)
+
+        self.ax_sim.plot(hrs, means, color="#0f172a", lw=2.2, label="Live Flow (1-Jam)", zorder=4)
+        if np.any(~anom_mask):
+            self.ax_sim.scatter(hrs[~anom_mask], means[~anom_mask], color="#0f172a", s=24, zorder=5)
+        if np.any(anom_mask):
+            self.ax_sim.scatter(hrs[anom_mask], means[anom_mask], color="#dc2626", marker="X", s=100, label="Anomali AIS", zorder=6)
+
+        y_top = max(
+            1.6,
+            float(np.max(means)) * 1.15 if len(means) else 1.6,
+            max((p["zscore_ucl"] for p in self.sim_profile), default=1.0) * 1.15 if self.show_zscore_var.get() else 0.0,
+            max((p["ais_upper"] for p in self.sim_profile), default=1.0) * 1.15 if self.show_ais_var.get() else 0.0,
+        )
         self.ax_sim.set_xlim(0, 24)
+        self.ax_sim.set_ylim(0, y_top)
         self.ax_sim.set_xticks(range(0, 25, 2))
         self.ax_sim.set_xlabel("Jam (00:00 - 24:00)")
-        self.ax_sim.set_ylabel("Laju Air (L/min)")
-        self.ax_sim.set_title(f"Monitoring 24 Jam — {ag.day_name}, {ag.date_str}", fontweight="bold")
+        self.ax_sim.set_ylabel("Laju Air 1-Jam (L/min)")
+        self.ax_sim.set_title(
+            f"Proyeksi Threshold AIS {ag.day_name} (M1+M2) vs Uji Minggu-{ag.week_number} ({ag.date_str})",
+            fontweight="bold",
+        )
         self.ax_sim.grid(alpha=0.25, linestyle="--")
         self.ax_sim.legend(loc="upper right", fontsize=8)
         self.canvas_sim.draw()
@@ -452,8 +430,7 @@ class WaterAISTkinterApp:
                     f"{a.mean_flow_lpm:.3f} ({a.total_liters:.1f}L)",
                     f"{a.active_slots}/4",
                     ra.status_label,
-                    "ANOM" if item["z15"].is_anomaly else "Normal",
-                    "ANOM" if item["z1h"].is_anomaly else "Normal",
+                    f"d={ra.min_dist_to_self:.3f} (m={ra.max_detector_margin:+.3f})",
                     f"{ra.anomaly_category} | {ra.valve_action}",
                 ),
             )
@@ -506,4 +483,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

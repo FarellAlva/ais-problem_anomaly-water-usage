@@ -1,11 +1,9 @@
 """
 scenarios.py — Suite Skenario Uji Berlabel (Normal Variatif & 6 Kelas Anomali Air)
 
-Digunakan untuk menguji performa deteksi berbasis Agregator 1 Jam secara adil antara:
-- Z-Score 15-Menit (Jurnal JUTISI)
-- Z-Score 1-Jam
-- AIS Per-Slot (168 x 2 sampel)
-- AIS Context-Aware V-Detector (Model Utama)
+Digunakan untuk menguji performa deteksi Artificial Immune System berbasis Agregator 1 Jam:
+- WaterAISVDetector (Model Utama: Context-Aware 7D V-Detector Negative Selection)
+- PerSlotNSA (Ablasi Internal: AIS Per-Slot 168 x 2 sampel terisolasi)
 """
 
 from __future__ import annotations
@@ -73,7 +71,7 @@ def build_benchmark_scenarios() -> List[LabeledHourScenario]:
         ("A-01", "Kebocoran Halus Siang 10:00", "slow_leak", True, "Monday", 10, (0.35, 0.35, 0.35, 0.35),
          "Pipa/keran menetes deras terus-menerus 0.35 L/min selama 1 jam penuh (21 L/jam)."),
         ("A-02", "Kebocoran Sedang Sore 17:00", "slow_leak", True, "Wednesday", 17, (0.50, 0.50, 0.50, 0.50),
-         "Kebocoran kontinyu 0.50 L/min pada jam sibuk sore (30 L/jam, kerap lolos Z-Score rata-rata!)."),
+         "Kebocoran kontinyu 0.50 L/min pada jam sibuk sore (30 L/jam, tersamar di tengah jam sibuk)."),
         ("A-03", "Kebocoran Halus Siang 12:00", "slow_leak", True, "Friday", 12, (0.32, 0.36, 0.30, 0.34),
          "Kebocoran konstan 4/4 slot di siang hari."),
 

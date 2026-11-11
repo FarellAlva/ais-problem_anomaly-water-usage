@@ -1,8 +1,8 @@
 """
 dataset_loader.py — Parser Dataset Aliran Air 2 Minggu (Model-dataset-2 weeks.txt)
 
-Membaca 1.344 interval pengukuran 15 menit (04 Mei 2025 – 17 Mei 2025) yang digunakan
-pada studi IoT Deteksi Anomali Air (Jurnal JUTISI), beserta struktur indeks hari,
+Membaca 1.344 interval pengukuran 15 menit (04 Mei 2025 – 17 Mei 2025) untuk
+studi IoT Deteksi Anomali Penggunaan Air, beserta struktur indeks hari,
 minggu (Minggu-1 vs Minggu-2), jam, dan slot waktu mingguan.
 """
 

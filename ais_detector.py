@@ -143,6 +143,7 @@ class WaterAISVDetector:
         self.detectors: Optional[np.ndarray] = None
         self.radii: Optional[np.ndarray] = None
         self.trace: Optional[AISTrainingTrace] = None
+        self._threshold_cache: Dict[str, List[Dict[str, float]]] = {}
 
     def _fast_extract_physical(
         self,
@@ -308,6 +309,7 @@ class WaterAISVDetector:
         dt = time.perf_counter() - t0
         self.detectors = D_buf[:n_det].copy()
         self.radii = R_buf[:n_det].copy()
+        self._threshold_cache.clear()
 
         r_min = float(np.min(self.radii)) if n_det > 0 else 0.0
         r_med = float(np.median(self.radii)) if n_det > 0 else 0.0
@@ -432,6 +434,119 @@ class WaterAISVDetector:
             valve_action="KEEP_OPEN",
             reason=reason,
         )
+
+    def compute_weekday_threshold_profile(
+        self,
+        day_name: str,
+        grid_max: float = 2.8,
+        step: float = 0.02,
+    ) -> List[Dict[str, float]]:
+        """
+        Memproyeksikan amplop ambang batas 24-jam milik AIS V-Detector untuk hari tertentu
+        (`Sunday`..`Saturday`) agar dapat dibandingkan secara visual terhadap kurva UCL Z-Score.
+
+        - `ais_upper_lpm`: batas atas rata-rata laju 1-jam pola intermiten wajar (2/4 slot aktif)
+          yang masih berada di dalam zona toleransi Self sebelum memicu Mature V-Detector.
+        - `ais_leak_limit_lpm`: ambang pemicu kebocoran kontinyu (4/4 slot mengalir tanpa jeda).
+        """
+        if self.self_matrix is None or self.detectors is None or self.radii is None:
+            raise RuntimeError("Model AIS belum dilatih. Panggil .fit(...) terlebih dahulu.")
+
+        if day_name in self._threshold_cache:
+            return self._threshold_cache[day_name]
+
+        is_wknd = day_name in ("Saturday", "Sunday")
+        grid = np.round(np.arange(0.0, grid_max + 1e-9, step), 4)
+        n_g = len(grid)
+        hours = np.arange(24, dtype=float)
+        angles = 2.0 * np.pi * (hours / 24.0)
+        c_sin = (0.5 * (np.sin(angles) + 1.0)) / FEATURE_SCALES[4]
+        c_cos = (0.5 * (np.cos(angles) + 1.0)) / FEATURE_SCALES[5]
+        wk_val = (1.0 if is_wknd else 0.0) / FEATURE_SCALES[6]
+
+        # Bangun matriks fitur tervektorisasi untuk 24 jam x grid
+        h_idx = np.repeat(np.arange(24), n_g)
+        m_vals = np.tile(grid, 24)
+
+        # Pola intermiten normal (2/4 slot aktif: [2m, 2m, 0, 0]) -> batas atas AIS
+        V_inter = np.column_stack(
+            [
+                np.log1p(m_vals) / FEATURE_SCALES[0],
+                np.log1p(2.0 * m_vals) / FEATURE_SCALES[1],
+                np.full(len(m_vals), 0.5 / FEATURE_SCALES[2], dtype=float),
+                np.zeros(len(m_vals), dtype=float),
+                c_sin[h_idx],
+                c_cos[h_idx],
+                np.full(len(m_vals), wk_val, dtype=float),
+            ]
+        )
+
+        # Pola aliran kontinyu (4/4 slot aktif: [m, m, m, m]) -> batas kebocoran AIS
+        V_leak = np.column_stack(
+            [
+                np.log1p(m_vals) / FEATURE_SCALES[0],
+                np.log1p(m_vals) / FEATURE_SCALES[1],
+                np.full(len(m_vals), 1.0 / FEATURE_SCALES[2], dtype=float),
+                np.log1p(m_vals) / FEATURE_SCALES[3],
+                c_sin[h_idx],
+                c_cos[h_idx],
+                np.full(len(m_vals), wk_val, dtype=float),
+            ]
+        )
+
+        if len(self.detectors) > 0:
+            D_w = self.detectors * FEATURE_WEIGHTS
+            D_n2 = np.sum(D_w * D_w, axis=1)
+
+            def _eval_trig(V: np.ndarray) -> np.ndarray:
+                Vw = V * FEATURE_WEIGHTS
+                Vn2 = np.sum(Vw * Vw, axis=1)
+                d2 = np.maximum(0.0, Vn2[:, None] + D_n2[None, :] - 2.0 * (Vw @ D_w.T))
+                margins = self.radii[None, :] - np.sqrt(d2)
+                return np.any(margins > 0.0, axis=1).reshape(24, n_g)
+
+            trig_inter = _eval_trig(V_inter)
+            trig_leak = _eval_trig(V_leak)
+        else:
+            trig_inter = np.zeros((24, n_g), dtype=bool)
+            trig_leak = np.zeros((24, n_g), dtype=bool)
+
+        # Pastikan batas atas mencakup pengamatan historis normal M1/M2 di slot (day_name, h)
+        real_max_by_h = {h: 0.0 for h in range(24)}
+        for ag in self.self_antigens:
+            if ag.day_name == day_name and ag.mean_flow_lpm > real_max_by_h[ag.hour]:
+                real_max_by_h[ag.hour] = ag.mean_flow_lpm
+
+        profile: List[Dict[str, float]] = []
+        for h in range(24):
+            w_max = real_max_by_h[h]
+            safe_upper = w_max
+            started = False
+            for m, is_tr in zip(grid, trig_inter[h]):
+                if m + 1e-9 < w_max:
+                    continue
+                if not is_tr:
+                    started = True
+                    safe_upper = float(m)
+                elif started:
+                    break
+
+            leak_limit = float(grid_max)
+            for m, is_tr in zip(grid[1:], trig_leak[h][1:]):
+                if is_tr:
+                    leak_limit = float(m)
+                    break
+
+            profile.append(
+                {
+                    "hour": h,
+                    "ais_upper_lpm": round(safe_upper, 4),
+                    "ais_leak_limit_lpm": round(leak_limit, 4),
+                }
+            )
+
+        self._threshold_cache[day_name] = profile
+        return profile
 
 
 class PerSlotNSA:

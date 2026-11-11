@@ -1,25 +1,20 @@
 """
-zscore_baseline.py — Implementasi Baseline Z-Score Statistik (Referensi Jurnal JUTISI)
+zscore_baseline.py — Utilitas Ambang Batas Statistik Z-Score (Pembanding Visual Grafik)
 
-Mengimplementasikan pendekatan Z-Score dari:
-  "Sistem Deteksi Anomali Penggunaan Air Berbasis IoT dengan Pendekatan Z-Score Statistik"
-  (Farell Alvaro Theriono et al., JuTISI)
-
-Menyediakan dua varian:
+Menyediakan perhitungan ambang batas atas (Upper Control Limit / UCL = mu + k * sigma)
+untuk overlay pembanding transparan pada grafik monitoring 24-jam terhadap kurva
+proyeksi Artificial Immune System (AIS):
 1. ZScore15MinBaseline (672 slot mingguan = 7 hari x 96 slot 15-menit):
    - Menghitung mu dan sigma (ddof=1) tiap slot (N=2 pada data 2 minggu).
    - UCL_final = max(mu + k * sigma, ucl_min), dengan k=2.0 dan ucl_min=0.20 L/min.
-   - Aturan agregator 1-jam: jika >= 1 dari 4 slot 15-menit melebihi UCL_final,
-     maka jam tersebut diklasifikasikan sebagai ANOMALI.
 2. ZScore1HourBaseline (168 slot mingguan = 7 hari x 24 jam):
-   - Menerapkan rumus Z-Score yang sama pada rata-rata laju air 1 jam (N=2).
-   - UCL_final = max(mu + k * sigma, ucl_min_hourly), dengan k=2.0 dan ucl_min=0.08 L/min.
+   - Menerapkan rumus UCL statistik yang sama pada rata-rata laju air 1 jam (N=2)
+     untuk menggambar pita oranye transparan (mu + 2*sigma) di grafik 24-jam.
 
 Catatan Matematis N=2:
-Jika data pelatihan hanya 1 minggu (N=1 per slot), sample std (n-1) tidak terdefinisi
-sehingga jatuh ke fallback sigma=0 (hanya mengandalkan ucl_min). Dan pada N=2,
-s = |x1 - x2| / sqrt(2) membuat batas atas sangat tidak stabil ketika dua minggu
-memiliki nilai kembar (s=0 -> UCL sempit) atau bergeser jam (s besar -> UCL terlalu lebar).
+Pada N=2 (Minggu-1 dan Minggu-2), simpangan baku sampel s = |x1 - x2| / sqrt(2)
+berfluktuasi tajam: menyempit ke floor ketika dua minggu identik nol, dan melonjak
+tinggi ketika jam aktivitas bergeser antar minggu.
 """
 
 from __future__ import annotations
@@ -64,7 +59,7 @@ class ZScorePrediction:
 
 
 class ZScore15MinBaseline:
-    """Metode Z-Score Jurnal JUTISI pada 672 slot mingguan (interval 15 menit)."""
+    """Utilitas perhitungan ambang Z-Score pada 672 slot mingguan (interval 15 menit)."""
 
     def __init__(self, k: float = 2.0, ucl_min: float = 0.20) -> None:
         self.k = float(k)
@@ -123,7 +118,7 @@ class ZScore15MinBaseline:
 
 
 class ZScore1HourBaseline:
-    """Adaptasi Z-Score Jurnal JUTISI langsung ke 168 slot agregasi 1 jam (N=2)."""
+    """Utilitas perhitungan ambang Z-Score langsung pada 168 slot agregasi 1 jam (N=2)."""
 
     def __init__(self, k: float = 2.0, ucl_min: float = 0.08) -> None:
         self.k = float(k)
