@@ -2,6 +2,9 @@
 
 Implementasi *from-scratch* **Artificial Immune System (AIS)** menggunakan **Context-Aware Real-Valued V-Detector Negative Selection** untuk mendeteksi anomali penggunaan air IoT pada **jendela agregasi 1 jam** (`4 × 15 menit`), dilengkapi dua aplikasi interaktif (**Web Dashboard** dan **Desktop GUI Tkinter**) serta overlay pembanding visual **Threshold AIS (Biru)** vs **Threshold Z-Score (Oranye)** pada grafik 24-jam.
 
+- **Repositori Source Code**: https://github.com/FarellAlva/ais-problem_anomaly-water-usage
+- **Repositori Sumber Dataset**: https://github.com/FarellAlva/Dataset-Sistem-Deteksi-Anomali-Penggunaan-Air-Berbasis-IoT-dengan-Pendekatan-Z-Score-Statistik-
+
 ---
 
 ## 1. Struktur Dataset 2 Minggu (`Model-dataset-2 weeks.txt`)
@@ -69,9 +72,10 @@ python app_tkinter.py
 ```
 Atau klik ganda **`run_tkinter.bat`**.
 
-### 3) Menjalankan Ulang Eksperimen, Grafik, & Pengujian
+### 3) Menjalankan Ulang Eksperimen, Grafik, Makalah Word, & Pengujian
 ```bash
 python run_experiments.py
 python analyze_results.py
+python build_ais_paper_docx.py
 pytest -v test_ais.py
 ```

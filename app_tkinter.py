@@ -76,17 +76,9 @@ class WaterAISTkinterApp:
         except Exception:
             pass
 
-        # Header Status Bar
+        # Header Status Bar (pack RIGHT badges first so they never clip on narrow/HiDPI screens)
         hdr = tk.Frame(self.root, bg="#0f172a", padx=14, pady=10)
         hdr.pack(fill=tk.X)
-
-        tk.Label(
-            hdr,
-            text="WaterAIS — Deteksi Anomali Air Berbasis Artificial Immune System (Agregator 1-Jam)",
-            fg="#ffffff",
-            bg="#0f172a",
-            font=("Segoe UI", 12, "bold"),
-        ).pack(side=tk.LEFT)
 
         self.lbl_valve = tk.Label(
             hdr,
@@ -124,6 +116,14 @@ class WaterAISTkinterApp:
             pady=4,
         ).pack(side=tk.RIGHT, padx=4)
 
+        tk.Label(
+            hdr,
+            text="WaterAIS — Monitoring & Deteksi Anomali Air (1-Jam)",
+            fg="#ffffff",
+            bg="#0f172a",
+            font=("Segoe UI", 11, "bold"),
+        ).pack(side=tk.LEFT)
+
         # Notebook tabs (3 Tab Murni AIS)
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=8)
@@ -141,17 +141,17 @@ class WaterAISTkinterApp:
         self._build_ais_tab()
 
     def _build_sim_tab(self) -> None:
-        left = ttk.LabelFrame(self.tab_sim, text=" Kontrol Simulasi & Parameter AIS ", padding=10)
-        left.pack(side=tk.LEFT, fill=tk.Y, padx=(4, 8), pady=4)
+        left = ttk.LabelFrame(self.tab_sim, text=" Kontrol Simulasi & Parameter AIS ", padding=8)
+        left.pack(side=tk.LEFT, fill=tk.Y, padx=(4, 6), pady=4)
 
         ttk.Label(left, text="Model Hari (Gabungan M1+M2):").pack(anchor=tk.W)
-        cb_day = ttk.Combobox(left, textvariable=self.sim_weekday_var, values=self.weekday_labels, state="readonly", width=34)
-        cb_day.pack(fill=tk.X, pady=(2, 6))
+        cb_day = ttk.Combobox(left, textvariable=self.sim_weekday_var, values=self.weekday_labels, state="readonly", width=31)
+        cb_day.pack(fill=tk.X, pady=(1, 4))
         cb_day.bind("<<ComboboxSelected>>", lambda _e: self.run_day_simulation())
 
         ttk.Label(left, text="Data Uji (Live Flow):").pack(anchor=tk.W)
-        cb_wk = ttk.Combobox(left, textvariable=self.sim_week_var, values=["Data Asli Minggu-1", "Data Asli Minggu-2"], state="readonly", width=34)
-        cb_wk.pack(fill=tk.X, pady=(2, 6))
+        cb_wk = ttk.Combobox(left, textvariable=self.sim_week_var, values=["Data Asli Minggu-1", "Data Asli Minggu-2"], state="readonly", width=31)
+        cb_wk.pack(fill=tk.X, pady=(1, 4))
         cb_wk.bind("<<ComboboxSelected>>", lambda _e: self.run_day_simulation())
 
         ttk.Label(left, text="Skenario Injeksi Anomali:").pack(anchor=tk.W)
@@ -163,44 +163,44 @@ class WaterAISTkinterApp:
             "Banjir Kontinyu 1 Jam (1.80 x 4)",
             "Uji Normal: Geser Jam Mandi (0, 2.35, 0, 0)",
         ]
-        cb_pre = ttk.Combobox(left, textvariable=self.sim_preset_var, values=presets, state="readonly", width=34)
-        cb_pre.pack(fill=tk.X, pady=(2, 6))
+        cb_pre = ttk.Combobox(left, textvariable=self.sim_preset_var, values=presets, state="readonly", width=31)
+        cb_pre.pack(fill=tk.X, pady=(1, 4))
         cb_pre.bind("<<ComboboxSelected>>", lambda _e: self.run_day_simulation())
 
         ttk.Label(left, text="Jam Injeksi (0 - 23):").pack(anchor=tk.W)
-        ttk.Spinbox(left, from_=0, to=23, textvariable=self.sim_hour_var, width=10).pack(anchor=tk.W, pady=(2, 8))
+        ttk.Spinbox(left, from_=0, to=23, textvariable=self.sim_hour_var, width=10).pack(anchor=tk.W, pady=(1, 5))
 
         btn_row = ttk.Frame(left)
-        btn_row.pack(fill=tk.X, pady=4)
+        btn_row.pack(fill=tk.X, pady=3)
         ttk.Button(btn_row, text="Perbarui", command=self.run_day_simulation).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 3))
         self.btn_play = ttk.Button(btn_row, text="Play", command=self.toggle_play)
         self.btn_play.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=3)
         ttk.Button(btn_row, text="+1 Jam", command=self.step_hour).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(3, 0))
 
-        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
+        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=6)
         ttk.Label(left, text="Overlay Threshold Grafik:", font=("Segoe UI", 9, "bold")).pack(anchor=tk.W)
         ttk.Checkbutton(left, text="Threshold AIS (Biru Transparan)", variable=self.show_ais_var, command=self._refresh_sim_visuals).pack(anchor=tk.W)
         ttk.Checkbutton(left, text="Threshold Z-Score (Oranye Transparan)", variable=self.show_zscore_var, command=self._refresh_sim_visuals).pack(anchor=tk.W)
         ttk.Checkbutton(left, text="Rata-rata Gabungan (Mean)", variable=self.show_mean_var, command=self._refresh_sim_visuals).pack(anchor=tk.W)
 
-        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=6)
         ttk.Label(left, text="Parameter AIS V-Detector:", font=("Segoe UI", 9, "bold")).pack(anchor=tk.W)
-        ttk.Label(left, text="Self-Radius (r_self):").pack(anchor=tk.W, pady=(4, 0))
+        ttk.Label(left, text="Self-Radius (r_self):").pack(anchor=tk.W, pady=(2, 0))
         ttk.Scale(left, from_=0.32, to=0.54, variable=self.r_self_var).pack(fill=tk.X)
-        ttk.Label(left, text="Max V-Detectors:").pack(anchor=tk.W, pady=(4, 0))
+        ttk.Label(left, text="Max V-Detectors:").pack(anchor=tk.W, pady=(2, 0))
         ttk.Spinbox(left, from_=400, to=2200, increment=100, textvariable=self.max_det_var, width=12).pack(anchor=tk.W)
-        ttk.Button(left, text="Latih Ulang AIS", command=self.retrain_ais).pack(fill=tk.X, pady=8)
+        ttk.Button(left, text="Latih Ulang AIS", command=self.retrain_ais).pack(fill=tk.X, pady=5)
 
-        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
+        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
         self.lbl_sim_detail = tk.Label(
-            left, text="", justify=tk.LEFT, wraplength=275, font=("Segoe UI", 9), fg="#1e293b"
+            left, text="", justify=tk.LEFT, wraplength=270, font=("Segoe UI", 8), fg="#1e293b"
         )
         self.lbl_sim_detail.pack(fill=tk.BOTH, expand=True, anchor=tk.NW)
 
         # Chart area
         right = ttk.Frame(self.tab_sim)
         right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=4, pady=4)
-        self.fig_sim, self.ax_sim = plt.subplots(figsize=(8.5, 5.2), dpi=100)
+        self.fig_sim, self.ax_sim = plt.subplots(figsize=(7.2, 4.6), dpi=96)
         self.canvas_sim = FigureCanvasTkAgg(self.fig_sim, master=right)
         self.canvas_sim.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
@@ -410,9 +410,11 @@ class WaterAISTkinterApp:
         self.ax_sim.set_title(
             f"Proyeksi Threshold AIS {ag.day_name} (M1+M2) vs Uji Minggu-{ag.week_number} ({ag.date_str})",
             fontweight="bold",
+            fontsize=11,
         )
         self.ax_sim.grid(alpha=0.25, linestyle="--")
         self.ax_sim.legend(loc="upper right", fontsize=8)
+        self.fig_sim.tight_layout(pad=1.2)
         self.canvas_sim.draw()
 
         # Refresh table

@@ -255,12 +255,12 @@ def plot_ais_performance_and_ablation(bench_full: Dict[str, object], lodo_data: 
 
     x = np.arange(len(labels))
     bars = ax1.bar(x, rates, yerr=stds, capsize=3, width=0.62, color=bar_colors, edgecolor="#0f172a", linewidth=0.5)
-    for b, r in zip(bars, rates):
-        ax1.text(b.get_x() + b.get_width() / 2, min(103.5, r + 2.2), f"{r:.1f}%", ha="center", va="bottom", fontsize=8, fontweight="bold")
+    for b, r, s in zip(bars, rates, stds):
+        ax1.text(b.get_x() + b.get_width() / 2, min(110.0, r + s + 1.8), f"{r:.1f}%", ha="center", va="bottom", fontsize=8, fontweight="bold")
 
     ax1.axhline(vdet_m["f1_score"]["mean"] * 100.0, color="#6366f1", linestyle="--", lw=1.6,
                 label=f"Overall F1-Score: {vdet_m['f1_score']['mean']*100:.2f}% (Acc: {vdet_m['accuracy']['mean']*100:.2f}%, Prec: {vdet_m['precision']['mean']*100:.1f}%)")
-    ax1.set_ylim(0, 114)
+    ax1.set_ylim(0, 118)
     ax1.set_xticks(x)
     ax1.set_xticklabels(labels, fontsize=8, fontweight="bold")
     ax1.set_ylabel("Tingkat Ketepatan Deteksi 20-Seed (%)")
@@ -292,7 +292,7 @@ def plot_ais_performance_and_ablation(bench_full: Dict[str, object], lodo_data: 
 
     ax2.annotate(
         "Penggabungan 336 Self Sirkadian memangkas\nFalse Alarm Holdout & LODO hingga >94%!",
-        xy=(1.17, 0.4), xytext=(0.45, 11.5),
+        xy=(1.17, 1.35), xytext=(0.45, 11.5),
         arrowprops=dict(arrowstyle="->", color="#0369a1", lw=1.4),
         fontsize=8, color="#0c4a6e", fontweight="bold",
         bbox=dict(boxstyle="round,pad=0.35", fc="#e0f2fe", ec="#7dd3fc"),

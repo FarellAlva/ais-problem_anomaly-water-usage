@@ -42,31 +42,31 @@
       "max_detectors": 300,
       "scenario_f1_mean": 0.9593,
       "scenario_recall_mean": 0.9222,
-      "train_time_sec_mean": 0.4246
+      "train_time_sec_mean": 0.1282
     },
     {
       "max_detectors": 600,
       "scenario_f1_mean": 0.9771,
       "scenario_recall_mean": 0.9555,
-      "train_time_sec_mean": 1.9034
+      "train_time_sec_mean": 0.4407
     },
     {
       "max_detectors": 1000,
       "scenario_f1_mean": 0.9943,
       "scenario_recall_mean": 0.9889,
-      "train_time_sec_mean": 6.5289
+      "train_time_sec_mean": 1.2227
     },
     {
       "max_detectors": 1500,
       "scenario_f1_mean": 1.0,
       "scenario_recall_mean": 1.0,
-      "train_time_sec_mean": 7.6513
+      "train_time_sec_mean": 1.2273
     },
     {
       "max_detectors": 2200,
       "scenario_f1_mean": 1.0,
       "scenario_recall_mean": 1.0,
-      "train_time_sec_mean": 7.6853
+      "train_time_sec_mean": 1.3358
     }
   ]
 }

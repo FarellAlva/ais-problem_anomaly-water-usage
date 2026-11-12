@@ -48,49 +48,19 @@
     "test_hours": 168,
     "false_positives": 2,
     "fpr": 0.0119,
-    "train_time_sec": 1.2213,
+    "train_time_sec": 1.6204,
     "fp_examples": [
       "Thursday, 15 May 2025 18:00-19:00",
       "Friday, 16 May 2025 18:00-19:00"
     ],
     "perslot_false_positives": 33,
-    "perslot_fpr": 0.1964,
-    "zscore_1h_false_positives": 60,
-    "zscore_1h_fpr": 0.3571
+    "perslot_fpr": 0.1964
   },
   "benchmark": {
     "n_scenarios": 30,
     "n_normal_scenarios": 12,
     "n_anomaly_scenarios": 18,
     "models": {
-      "ZScore_15Min_JUTISI": {
-        "tp": 18,
-        "tn": 6,
-        "fp": 6,
-        "fn": 0,
-        "accuracy": 0.8,
-        "precision": 0.75,
-        "recall": 1.0,
-        "f1_score": 0.8571,
-        "fpr": 0.5,
-        "fnr": 0.0,
-        "train_time_sec": 0.0705,
-        "inf_ms_per_hour": 0.0166
-      },
-      "ZScore_1Hour_N2": {
-        "tp": 16,
-        "tn": 11,
-        "fp": 1,
-        "fn": 2,
-        "accuracy": 0.9,
-        "precision": 0.9412,
-        "recall": 0.8889,
-        "f1_score": 0.9143,
-        "fpr": 0.0833,
-        "fnr": 0.1111,
-        "train_time_sec": 0.0153,
-        "inf_ms_per_hour": 0.0078
-      },
       "PerSlot_AIS_N2": {
         "n_seeds": 20,
         "accuracy": {
@@ -130,16 +100,16 @@
           "max": 0.0
         },
         "train_time_sec": {
-          "mean": 6.6869,
-          "std": 3.216,
-          "min": 1.9367,
-          "max": 10.1365
+          "mean": 6.0669,
+          "std": 4.198,
+          "min": 2.5001,
+          "max": 11.5648
         },
         "inf_ms_per_hour": {
-          "mean": 0.0809,
-          "std": 0.0463,
-          "min": 0.0237,
-          "max": 0.2026
+          "mean": 0.0768,
+          "std": 0.047,
+          "min": 0.0298,
+          "max": 0.153
         }
       },
       "WaterAIS_VDetector": {
@@ -181,19 +151,77 @@
           "max": 0.1111
         },
         "train_time_sec": {
-          "mean": 1.9439,
-          "std": 1.4092,
-          "min": 1.0853,
-          "max": 4.653
+          "mean": 3.2784,
+          "std": 2.2061,
+          "min": 1.33,
+          "max": 6.1891
         },
         "inf_ms_per_hour": {
-          "mean": 0.1289,
-          "std": 0.0898,
-          "min": 0.0674,
-          "max": 0.3798
+          "mean": 0.1993,
+          "std": 0.1277,
+          "min": 0.0833,
+          "max": 0.3907
         }
       }
     },
+    "per_category_performance": [
+      {
+        "category": "normal_all",
+        "label": "Pola Normal Variatif (12 Skenario)",
+        "is_anomaly_class": false,
+        "n_scenarios": 12,
+        "correct_rate_mean": 1.0,
+        "correct_rate_std": 0.0
+      },
+      {
+        "category": "slow_leak",
+        "label": "Kebocoran Halus Kontinyu (3)",
+        "is_anomaly_class": true,
+        "n_scenarios": 3,
+        "correct_rate_mean": 1.0,
+        "correct_rate_std": 0.0
+      },
+      {
+        "category": "night_leak",
+        "label": "Kebocoran Jam Malam (3)",
+        "is_anomaly_class": true,
+        "n_scenarios": 3,
+        "correct_rate_mean": 1.0,
+        "correct_rate_std": 0.0
+      },
+      {
+        "category": "night_open_tap",
+        "label": "Keran Lupa Ditutup Malam (3)",
+        "is_anomaly_class": true,
+        "n_scenarios": 3,
+        "correct_rate_mean": 0.8667,
+        "correct_rate_std": 0.1944
+      },
+      {
+        "category": "off_schedule_burst",
+        "label": "Lonjakan Jam Sepi (3)",
+        "is_anomaly_class": true,
+        "n_scenarios": 3,
+        "correct_rate_mean": 1.0,
+        "correct_rate_std": 0.0
+      },
+      {
+        "category": "extreme_burst",
+        "label": "Pipa Pecah / Ekstrem (3)",
+        "is_anomaly_class": true,
+        "n_scenarios": 3,
+        "correct_rate_mean": 1.0,
+        "correct_rate_std": 0.0
+      },
+      {
+        "category": "continuous_high",
+        "label": "Banjir Aliran Kontinyu (3)",
+        "is_anomaly_class": true,
+        "n_scenarios": 3,
+        "correct_rate_mean": 1.0,
+        "correct_rate_std": 0.0
+      }
+    ],
     "vdetector_seed0_trace": {
       "n_self_cells": 336,
       "r_self": 0.43,
@@ -202,7 +230,7 @@
       "detectors_created": 933,
       "censored_by_self": 4389,
       "discarded_redundant": 19678,
-      "train_time_sec": 1.1263,
+      "train_time_sec": 6.099,
       "radius_min": 0.0,
       "radius_median": 0.0499,
       "radius_max": 4.4601,
@@ -363,11 +391,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 1,
         "mean_flow_lpm": 0.5875,
-        "zscore_15m": true,
-        "zscore_1h": false,
         "perslot_ais": false,
         "vdetector_ais": false,
+        "vdetector_min_dist": 0.058,
+        "vdetector_margin": -0.4915,
+        "vdetector_triggered": 0,
+        "vdetector_diagnosis": "Normal / Pola Wajar",
         "vdetector_reason": "Normal (Self-Space): tidak memicu detektor Non-Self (jarak Self=0.058 <= r_self=0.43; terdekat: Saturday, 17 May 2025 07:00-08:00)"
       },
       {
@@ -383,11 +414,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 1,
         "mean_flow_lpm": 0.6,
-        "zscore_15m": false,
-        "zscore_1h": false,
         "perslot_ais": false,
         "vdetector_ais": false,
+        "vdetector_min_dist": 0.0147,
+        "vdetector_margin": -0.4215,
+        "vdetector_triggered": 0,
+        "vdetector_diagnosis": "Normal / Pola Wajar",
         "vdetector_reason": "Normal (Self-Space): tidak memicu detektor Non-Self (jarak Self=0.015 <= r_self=0.43; terdekat: Saturday, 17 May 2025 08:00-09:00)"
       },
       {
@@ -403,11 +437,14 @@
           0.85,
           0.0
         ],
+        "active_slots": 2,
         "mean_flow_lpm": 0.775,
-        "zscore_15m": true,
-        "zscore_1h": false,
         "perslot_ais": false,
         "vdetector_ais": false,
+        "vdetector_min_dist": 0.024,
+        "vdetector_margin": -0.4309,
+        "vdetector_triggered": 0,
+        "vdetector_diagnosis": "Normal / Pola Wajar",
         "vdetector_reason": "Normal (Self-Space): tidak memicu detektor Non-Self (jarak Self=0.024 <= r_self=0.43; terdekat: Friday, 09 May 2025 06:00-07:00)"
       },
       {
@@ -423,11 +460,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 1,
         "mean_flow_lpm": 0.4875,
-        "zscore_15m": true,
-        "zscore_1h": false,
         "perslot_ais": false,
         "vdetector_ais": false,
+        "vdetector_min_dist": 0.0372,
+        "vdetector_margin": -0.4974,
+        "vdetector_triggered": 0,
+        "vdetector_diagnosis": "Normal / Pola Wajar",
         "vdetector_reason": "Normal (Self-Space): tidak memicu detektor Non-Self (jarak Self=0.037 <= r_self=0.43; terdekat: Tuesday, 13 May 2025 18:00-19:00)"
       },
       {
@@ -443,11 +483,14 @@
           0.3,
           0.0
         ],
+        "active_slots": 2,
         "mean_flow_lpm": 0.2875,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": false,
         "vdetector_ais": false,
+        "vdetector_min_dist": 0.0117,
+        "vdetector_margin": -0.4302,
+        "vdetector_triggered": 0,
+        "vdetector_diagnosis": "Normal / Pola Wajar",
         "vdetector_reason": "Normal (Self-Space): tidak memicu detektor Non-Self (jarak Self=0.012 <= r_self=0.43; terdekat: Thursday, 08 May 2025 13:00-14:00)"
       },
       {
@@ -463,11 +506,14 @@
           0.0,
           0.4
         ],
+        "active_slots": 2,
         "mean_flow_lpm": 0.28,
-        "zscore_15m": true,
-        "zscore_1h": false,
         "perslot_ais": false,
         "vdetector_ais": false,
+        "vdetector_min_dist": 0.0679,
+        "vdetector_margin": -0.4467,
+        "vdetector_triggered": 0,
+        "vdetector_diagnosis": "Normal / Pola Wajar",
         "vdetector_reason": "Normal (Self-Space): tidak memicu detektor Non-Self (jarak Self=0.068 <= r_self=0.43; terdekat: Wednesday, 07 May 2025 15:00-16:00)"
       },
       {
@@ -483,11 +529,14 @@
           1.25,
           0.2
         ],
+        "active_slots": 3,
         "mean_flow_lpm": 0.4,
-        "zscore_15m": false,
-        "zscore_1h": false,
         "perslot_ais": false,
         "vdetector_ais": false,
+        "vdetector_min_dist": 0.0407,
+        "vdetector_margin": -0.4067,
+        "vdetector_triggered": 0,
+        "vdetector_diagnosis": "Normal / Pola Wajar",
         "vdetector_reason": "Normal (Self-Space): tidak memicu detektor Non-Self (jarak Self=0.041 <= r_self=0.43; terdekat: Saturday, 17 May 2025 22:00-23:00)"
       },
       {
@@ -503,11 +552,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 1,
         "mean_flow_lpm": 0.045,
-        "zscore_15m": false,
-        "zscore_1h": false,
         "perslot_ais": false,
         "vdetector_ais": false,
+        "vdetector_min_dist": 0.0355,
+        "vdetector_margin": -0.4336,
+        "vdetector_triggered": 0,
+        "vdetector_diagnosis": "Normal / Pola Wajar",
         "vdetector_reason": "Normal (Self-Space): tidak memicu detektor Non-Self (jarak Self=0.036 <= r_self=0.43; terdekat: Tuesday, 06 May 2025 02:00-03:00)"
       },
       {
@@ -523,11 +575,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 1,
         "mean_flow_lpm": 0.035,
-        "zscore_15m": false,
-        "zscore_1h": false,
         "perslot_ais": false,
         "vdetector_ais": false,
+        "vdetector_min_dist": 0.0,
+        "vdetector_margin": -0.4914,
+        "vdetector_triggered": 0,
+        "vdetector_diagnosis": "Normal / Pola Wajar",
         "vdetector_reason": "Normal (Self-Space): tidak memicu detektor Non-Self (jarak Self=0.000 <= r_self=0.43; terdekat: Monday, 05 May 2025 00:00-01:00)"
       },
       {
@@ -543,11 +598,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 0,
         "mean_flow_lpm": 0.0,
-        "zscore_15m": false,
-        "zscore_1h": false,
         "perslot_ais": false,
         "vdetector_ais": false,
+        "vdetector_min_dist": 0.0,
+        "vdetector_margin": -0.6313,
+        "vdetector_triggered": 0,
+        "vdetector_diagnosis": "Normal / Pola Wajar",
         "vdetector_reason": "Normal (Self-Space): tidak memicu detektor Non-Self (jarak Self=0.000 <= r_self=0.43; terdekat: Monday, 05 May 2025 04:00-05:00)"
       },
       {
@@ -563,11 +621,14 @@
           0.82,
           0.0
         ],
+        "active_slots": 1,
         "mean_flow_lpm": 0.205,
-        "zscore_15m": false,
-        "zscore_1h": false,
         "perslot_ais": false,
         "vdetector_ais": false,
+        "vdetector_min_dist": 0.012,
+        "vdetector_margin": -0.5484,
+        "vdetector_triggered": 0,
+        "vdetector_diagnosis": "Normal / Pola Wajar",
         "vdetector_reason": "Normal (Self-Space): tidak memicu detektor Non-Self (jarak Self=0.012 <= r_self=0.43; terdekat: Thursday, 15 May 2025 16:00-17:00)"
       },
       {
@@ -583,11 +644,14 @@
           0.0,
           0.65
         ],
+        "active_slots": 2,
         "mean_flow_lpm": 0.6125,
-        "zscore_15m": true,
-        "zscore_1h": false,
         "perslot_ais": false,
         "vdetector_ais": false,
+        "vdetector_min_dist": 0.2478,
+        "vdetector_margin": -0.2059,
+        "vdetector_triggered": 0,
+        "vdetector_diagnosis": "Normal / Pola Wajar",
         "vdetector_reason": "Normal (Self-Space): tidak memicu detektor Non-Self (jarak Self=0.248 <= r_self=0.43; terdekat: Friday, 09 May 2025 19:00-20:00)"
       },
       {
@@ -603,11 +667,14 @@
           0.35,
           0.35
         ],
+        "active_slots": 4,
         "mean_flow_lpm": 0.35,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 1.0628,
+        "vdetector_margin": 0.2943,
+        "vdetector_triggered": 1,
+        "vdetector_diagnosis": "Kebocoran Kontinyu (4/4 Slot Aktif)",
         "vdetector_reason": "Kebocoran Kontinyu (4/4 Slot Aktif): memicu 1 V-Detector AIS (margin=+0.294, jarak Self=1.063 > r_self=0.43)"
       },
       {
@@ -623,11 +690,14 @@
           0.5,
           0.5
         ],
+        "active_slots": 4,
         "mean_flow_lpm": 0.5,
-        "zscore_15m": true,
-        "zscore_1h": false,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 1.4103,
+        "vdetector_margin": 0.5394,
+        "vdetector_triggered": 1,
+        "vdetector_diagnosis": "Kebocoran Kontinyu (4/4 Slot Aktif)",
         "vdetector_reason": "Kebocoran Kontinyu (4/4 Slot Aktif): memicu 1 V-Detector AIS (margin=+0.539, jarak Self=1.410 > r_self=0.43)"
       },
       {
@@ -643,11 +713,14 @@
           0.3,
           0.34
         ],
+        "active_slots": 4,
         "mean_flow_lpm": 0.33,
-        "zscore_15m": true,
-        "zscore_1h": false,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 0.9551,
+        "vdetector_margin": 0.1625,
+        "vdetector_triggered": 2,
+        "vdetector_diagnosis": "Kebocoran Kontinyu (4/4 Slot Aktif)",
         "vdetector_reason": "Kebocoran Kontinyu (4/4 Slot Aktif): memicu 2 V-Detector AIS (margin=+0.162, jarak Self=0.955 > r_self=0.43)"
       },
       {
@@ -663,11 +736,14 @@
           0.45,
           0.45
         ],
+        "active_slots": 4,
         "mean_flow_lpm": 0.45,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 1.4453,
+        "vdetector_margin": 0.8006,
+        "vdetector_triggered": 3,
+        "vdetector_diagnosis": "Kebocoran Kontinyu Jam Malam",
         "vdetector_reason": "Kebocoran Kontinyu Jam Malam: memicu 3 V-Detector AIS (margin=+0.801, jarak Self=1.445 > r_self=0.43)"
       },
       {
@@ -683,11 +759,14 @@
           0.38,
           0.36
         ],
+        "active_slots": 4,
         "mean_flow_lpm": 0.3725,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 1.2139,
+        "vdetector_margin": 0.5668,
+        "vdetector_triggered": 2,
+        "vdetector_diagnosis": "Kebocoran Kontinyu Jam Malam",
         "vdetector_reason": "Kebocoran Kontinyu Jam Malam: memicu 2 V-Detector AIS (margin=+0.567, jarak Self=1.214 > r_self=0.43)"
       },
       {
@@ -703,11 +782,14 @@
           0.5,
           0.54
         ],
+        "active_slots": 4,
         "mean_flow_lpm": 0.5275,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 1.4332,
+        "vdetector_margin": 0.9068,
+        "vdetector_triggered": 2,
+        "vdetector_diagnosis": "Kebocoran Kontinyu Jam Malam",
         "vdetector_reason": "Kebocoran Kontinyu Jam Malam: memicu 2 V-Detector AIS (margin=+0.907, jarak Self=1.433 > r_self=0.43)"
       },
       {
@@ -723,11 +805,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 2,
         "mean_flow_lpm": 0.6,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 0.8544,
+        "vdetector_margin": 0.3847,
+        "vdetector_triggered": 2,
+        "vdetector_diagnosis": "Aktivitas Air Abnormal Jam Tidur/Malam",
         "vdetector_reason": "Aktivitas Air Abnormal Jam Tidur/Malam: memicu 2 V-Detector AIS (margin=+0.385, jarak Self=0.854 > r_self=0.43)"
       },
       {
@@ -743,11 +828,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 2,
         "mean_flow_lpm": 0.35,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 0.5807,
+        "vdetector_margin": 0.1038,
+        "vdetector_triggered": 2,
+        "vdetector_diagnosis": "Aktivitas Air Abnormal Jam Tidur/Malam",
         "vdetector_reason": "Aktivitas Air Abnormal Jam Tidur/Malam: memicu 2 V-Detector AIS (margin=+0.104, jarak Self=0.581 > r_self=0.43)"
       },
       {
@@ -763,11 +851,14 @@
           0.85,
           0.0
         ],
+        "active_slots": 3,
         "mean_flow_lpm": 0.725,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 0.5258,
+        "vdetector_margin": 0.0492,
+        "vdetector_triggered": 1,
+        "vdetector_diagnosis": "Aktivitas Air Abnormal Jam Tidur/Malam",
         "vdetector_reason": "Aktivitas Air Abnormal Jam Tidur/Malam: memicu 1 V-Detector AIS (margin=+0.049, jarak Self=0.526 > r_self=0.43)"
       },
       {
@@ -783,11 +874,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 1,
         "mean_flow_lpm": 0.6,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 0.727,
+        "vdetector_margin": 0.1993,
+        "vdetector_triggered": 1,
+        "vdetector_diagnosis": "Aktivitas Air Abnormal Jam Tidur/Malam",
         "vdetector_reason": "Aktivitas Air Abnormal Jam Tidur/Malam: memicu 1 V-Detector AIS (margin=+0.199, jarak Self=0.727 > r_self=0.43)"
       },
       {
@@ -803,11 +897,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 1,
         "mean_flow_lpm": 0.4625,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 0.8174,
+        "vdetector_margin": 0.202,
+        "vdetector_triggered": 1,
+        "vdetector_diagnosis": "Aktivitas Air Abnormal Jam Tidur/Malam",
         "vdetector_reason": "Aktivitas Air Abnormal Jam Tidur/Malam: memicu 1 V-Detector AIS (margin=+0.202, jarak Self=0.817 > r_self=0.43)"
       },
       {
@@ -823,11 +920,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 2,
         "mean_flow_lpm": 0.9,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 0.5387,
+        "vdetector_margin": 0.0329,
+        "vdetector_triggered": 2,
+        "vdetector_diagnosis": "Aktivitas Air Abnormal Jam Tidur/Malam",
         "vdetector_reason": "Aktivitas Air Abnormal Jam Tidur/Malam: memicu 2 V-Detector AIS (margin=+0.033, jarak Self=0.539 > r_self=0.43)"
       },
       {
@@ -843,11 +943,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 2,
         "mean_flow_lpm": 2.5,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 0.8628,
+        "vdetector_margin": 0.3275,
+        "vdetector_triggered": 3,
+        "vdetector_diagnosis": "Lonjakan Debit Ekstrem",
         "vdetector_reason": "Lonjakan Debit Ekstrem: memicu 3 V-Detector AIS (margin=+0.327, jarak Self=0.863 > r_self=0.43)"
       },
       {
@@ -863,11 +966,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 2,
         "mean_flow_lpm": 2.075,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 1.376,
+        "vdetector_margin": 0.6174,
+        "vdetector_triggered": 2,
+        "vdetector_diagnosis": "Lonjakan Debit Ekstrem",
         "vdetector_reason": "Lonjakan Debit Ekstrem: memicu 2 V-Detector AIS (margin=+0.617, jarak Self=1.376 > r_self=0.43)"
       },
       {
@@ -883,11 +989,14 @@
           0.0,
           0.0
         ],
+        "active_slots": 1,
         "mean_flow_lpm": 1.375,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 0.704,
+        "vdetector_margin": 0.2416,
+        "vdetector_triggered": 2,
+        "vdetector_diagnosis": "Lonjakan Debit Ekstrem",
         "vdetector_reason": "Lonjakan Debit Ekstrem: memicu 2 V-Detector AIS (margin=+0.242, jarak Self=0.704 > r_self=0.43)"
       },
       {
@@ -903,11 +1012,14 @@
           1.8,
           1.8
         ],
+        "active_slots": 4,
         "mean_flow_lpm": 1.8,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 3.4888,
+        "vdetector_margin": 2.7555,
+        "vdetector_triggered": 2,
+        "vdetector_diagnosis": "Kebocoran Kontinyu (4/4 Slot Aktif)",
         "vdetector_reason": "Kebocoran Kontinyu (4/4 Slot Aktif): memicu 2 V-Detector AIS (margin=+2.755, jarak Self=3.489 > r_self=0.43)"
       },
       {
@@ -923,11 +1035,14 @@
           2.15,
           2.25
         ],
+        "active_slots": 4,
         "mean_flow_lpm": 2.225,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 3.7174,
+        "vdetector_margin": 2.1132,
+        "vdetector_triggered": 2,
+        "vdetector_diagnosis": "Kebocoran Kontinyu (4/4 Slot Aktif)",
         "vdetector_reason": "Kebocoran Kontinyu (4/4 Slot Aktif): memicu 2 V-Detector AIS (margin=+2.113, jarak Self=3.717 > r_self=0.43)"
       },
       {
@@ -943,11 +1058,14 @@
           1.05,
           1.2
         ],
+        "active_slots": 4,
         "mean_flow_lpm": 1.125,
-        "zscore_15m": true,
-        "zscore_1h": true,
         "perslot_ais": true,
         "vdetector_ais": true,
+        "vdetector_min_dist": 2.3956,
+        "vdetector_margin": 1.7678,
+        "vdetector_triggered": 2,
+        "vdetector_diagnosis": "Kebocoran Kontinyu (4/4 Slot Aktif)",
         "vdetector_reason": "Kebocoran Kontinyu (4/4 Slot Aktif): memicu 2 V-Detector AIS (margin=+1.768, jarak Self=2.396 > r_self=0.43)"
       }
     ]

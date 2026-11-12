@@ -5,8 +5,6 @@
   "overall_fpr": 0.0,
   "perslot_total_fp": 60,
   "perslot_overall_fpr": 0.1786,
-  "zscore_1h_total_fp": 94,
-  "zscore_1h_overall_fpr": 0.2798,
   "per_day": [
     {
       "day_number": 0,
@@ -16,7 +14,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 7,
-      "zscore_1h_fp": 6,
       "fp_details": []
     },
     {
@@ -27,7 +24,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 2,
-      "zscore_1h_fp": 2,
       "fp_details": []
     },
     {
@@ -38,7 +34,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 2,
-      "zscore_1h_fp": 3,
       "fp_details": []
     },
     {
@@ -49,7 +44,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 1,
-      "zscore_1h_fp": 8,
       "fp_details": []
     },
     {
@@ -60,7 +54,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 6,
-      "zscore_1h_fp": 6,
       "fp_details": []
     },
     {
@@ -71,7 +64,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 3,
-      "zscore_1h_fp": 4,
       "fp_details": []
     },
     {
@@ -82,7 +74,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 6,
-      "zscore_1h_fp": 5,
       "fp_details": []
     },
     {
@@ -93,7 +84,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 6,
-      "zscore_1h_fp": 8,
       "fp_details": []
     },
     {
@@ -104,7 +94,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 5,
-      "zscore_1h_fp": 10,
       "fp_details": []
     },
     {
@@ -115,7 +104,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 4,
-      "zscore_1h_fp": 10,
       "fp_details": []
     },
     {
@@ -126,7 +114,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 3,
-      "zscore_1h_fp": 5,
       "fp_details": []
     },
     {
@@ -137,7 +124,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 5,
-      "zscore_1h_fp": 8,
       "fp_details": []
     },
     {
@@ -148,7 +134,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 4,
-      "zscore_1h_fp": 10,
       "fp_details": []
     },
     {
@@ -159,7 +144,6 @@
       "fp": 0,
       "fpr": 0.0,
       "perslot_fp": 6,
-      "zscore_1h_fp": 9,
       "fp_details": []
     }
   ]

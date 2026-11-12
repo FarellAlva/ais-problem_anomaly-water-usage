@@ -700,8 +700,8 @@ function renderBenchmarkTab() {
 
   // Bar chart: Per-category performance of WaterAIS V-Detector
   const canvas = document.getElementById("canvas-bench");
-  const { ctx, w, h } = setupHiDPICanvas(canvas, 290);
-  const pad = { l: 42, r: 16, t: 28, b: 46 };
+  const { ctx, w, h } = setupHiDPICanvas(canvas, 305);
+  const pad = { l: 42, r: 16, t: 44, b: 46 };
   const plotW = w - pad.l - pad.r;
   const plotH = h - pad.t - pad.b;
 
@@ -734,27 +734,30 @@ function renderBenchmarkTab() {
     const val = cat.correct_rate_mean * 100;
     const bh = (val / 100) * plotH;
     const bx = pad.l + gi * grpW + (grpW - barW) / 2;
+    const cx = bx + barW / 2;
     const by = pad.t + plotH - bh;
     ctx.fillStyle = cat.is_anomaly_class ? "#0284c7" : "#10b981";
     ctx.fillRect(bx, by, barW, bh);
+    ctx.textAlign = "center";
     ctx.fillStyle = "#0f172a";
     ctx.font = "bold 9.5px sans-serif";
-    ctx.fillText(`${val.toFixed(1)}%`, bx + 2, by - 4);
+    ctx.fillText(`${val.toFixed(1)}%`, cx, by - 5);
 
     ctx.fillStyle = "#334155";
     ctx.font = "9.5px sans-serif";
     const lbl = shortLbl[cat.category] || cat.category;
-    ctx.fillText(lbl, pad.l + gi * grpW + 4, h - 22);
+    ctx.fillText(lbl, cx, h - 22);
     ctx.fillStyle = "#64748b";
-    ctx.fillText(`(${cat.n_scenarios} sken.)`, pad.l + gi * grpW + 10, h - 8);
+    ctx.fillText(`(${cat.n_scenarios} sken.)`, cx, h - 8);
   });
+  ctx.textAlign = "left";
 
   ctx.fillStyle = "#0f172a";
   ctx.font = "bold 10.5px sans-serif";
   ctx.fillText(
     `WaterAIS 7D • F1 ${(vdet.f1_score.mean * 100).toFixed(2)}% | Acc ${(vdet.accuracy.mean * 100).toFixed(2)}% | Precision ${(vdet.precision.mean * 100).toFixed(1)}%`,
     pad.l,
-    16
+    15
   );
 
   // Scenario matrix (Pure AIS)
