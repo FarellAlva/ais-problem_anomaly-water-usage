@@ -1,0 +1,9 @@
+# Ignore local reference PDF
+Jurnal-Deteksi_Anomali_Air_IoT_ZSkor_JUTISI.pdf
+
+# Temporary / cache files
+~$*.docx
+.pytest_cache/
+__pycache__/
+*.pyc
+
